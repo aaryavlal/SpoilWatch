@@ -14,18 +14,20 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Validate JSON files (like manifest.json)
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Find and validate all .json files
+      - name: Validate JSON files (like manifest.json)
         run: |
           find . -name "*.json" -print0 | xargs -0 -n1 jq empty
 
-      - name: Lint JavaScript files with ESLint (optional)
-        if: exists('package.json')
+      - name: Conditionally Lint JS (only if package.json exists)
         run: |
-          npm install eslint
-          npx eslint . --ext .js || true  # doesn't fail build on warning
-
+          if [ -f "package.json" ]; then
+            npm install eslint
+            npx eslint . --ext .js || true
+          else
+            echo "Skipping ESLint because package.json not found"
+          fi
