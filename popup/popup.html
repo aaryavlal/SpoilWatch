@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpoilWipe</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="title">SpoilWipe</h1>
+            <p class="subtitle">Block spoiler content</p>
+        </header>
+        
+        <main class="main">
+            <div class="input-group">
+                <label for="keyword" class="label">Keywords to block:</label>
+                <textarea 
+                    id="keyword" 
+                    class="input" 
+                    placeholder="Enter keywords separated by commas (e.g., spoiler, ending, finale)"
+                    rows="3"
+                ></textarea>
+            </div>
+            
+            <button id="saveBtn" class="save-btn">
+                <span class="btn-text">Save Keywords</span>
+                <div class="btn-loader hidden"></div>
+            </button>
+            
+            <div id="status" class="status hidden"></div>
+        </main>
+        
+        <footer class="footer">
+            <p class="footer-text">Keywords are case-insensitive</p>
+        </footer>
+    </div>
+    
+    <script type="module" src="popup.js"></script>
+</body>
+</html>
