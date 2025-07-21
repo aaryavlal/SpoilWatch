@@ -11,4 +11,15 @@ export function getBlockedKeywords() {
       chrome.storage.sync.set({ blocked: keywords }, resolve);
     });
   }
+
+  export function removeKeyword(keywordToRemove) {
+    return new Promise((resolve) => {
+      getBlockedKeywords().then(existingKeywords => {
+        const updatedKeywords = existingKeywords.filter(keyword => keyword !== keywordToRemove);
+        chrome.storage.sync.set({ blocked: updatedKeywords }, () => {
+          resolve(updatedKeywords);
+        });
+      });
+    });
+  }
   

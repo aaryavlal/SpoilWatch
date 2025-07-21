@@ -163,9 +163,129 @@ body {
     font-weight: 500;
     text-align: center;
     animation: slideIn 0.3s ease;
+    box-shadow: 0 2px 8px var(--midnight-shadow);
+}
+
+.status.success {
     background: var(--midnight-success);
     color: white;
     box-shadow: 0 2px 8px rgba(72, 187, 120, 0.3);
+}
+
+.status.error {
+    background: var(--midnight-error);
+    color: white;
+    box-shadow: 0 2px 8px rgba(245, 101, 101, 0.3);
+}
+
+.status.info {
+    background: var(--midnight-surface);
+    color: var(--midnight-text);
+    border: 1px solid var(--midnight-border);
+}
+
+/* Keyword display styles */
+.keywords-display {
+    text-align: left;
+}
+
+.keywords-header {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--midnight-text);
+    font-size: 13px;
+}
+
+.keywords-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.keyword-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--midnight-surface);
+    border: 1px solid var(--midnight-border);
+    border-radius: 8px;
+    padding: 4px 8px;
+    transition: all 0.2s ease;
+}
+
+.keyword-item:hover {
+    border-color: var(--midnight-accent);
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
+}
+
+.keyword-tag {
+    background: var(--midnight-accent);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    display: inline-block;
+    box-shadow: 0 1px 3px rgba(102, 126, 234, 0.3);
+    flex: 1;
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: var(--midnight-text-secondary);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+}
+
+.remove-btn:hover {
+    background: var(--midnight-error);
+    color: white;
+    transform: scale(1.1);
+}
+
+.remove-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.trash-icon {
+    font-size: 12px;
+    line-height: 1;
+}
+
+.loading-dots {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--midnight-text-secondary);
+}
+
+.success-message {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-top: 8px;
+    border-left: 3px solid var(--midnight-success);
+}
+
+.error-text {
+    color: white;
+    font-weight: 500;
+}
+
+.no-keywords {
+    color: var(--midnight-text-secondary);
+    font-style: italic;
 }
 
 @keyframes slideIn {
