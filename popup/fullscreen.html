@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpoilWipe Fullscreen</title>
+  <link rel="stylesheet" href="popup.css">
+  <style>
+    html, body {
+      min-height: 100vh;
+      height: 100%;
+      background: var(--midnight-bg);
+    }
+    .fullscreen-container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--midnight-bg);
+      color: var(--midnight-text);
+      padding: 0 24px;
+    }
+    .fullscreen-title {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--midnight-accent), #7f9cf5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 18px;
+      letter-spacing: -1px;
+      text-align: center;
+    }
+    .fullscreen-subtitle {
+      font-size: 1.3rem;
+      color: var(--midnight-text-secondary);
+      margin-bottom: 32px;
+      text-align: center;
+    }
+    .fullscreen-placeholder {
+      font-size: 1.1rem;
+      color: var(--midnight-text-secondary);
+      background: var(--midnight-surface);
+      border-radius: 16px;
+      padding: 32px 40px;
+      box-shadow: 0 8px 32px var(--midnight-shadow);
+      border: 1.5px solid var(--midnight-border);
+      text-align: center;
+      max-width: 420px;
+    }
+  </style>
+</head>
+<body>
+  <div class="fullscreen-container">
+    <div class="fullscreen-title">SpoilWipe Fullscreen</div>
+    <div class="fullscreen-subtitle">A majestic fullscreen experience</div>
+    <div class="fullscreen-placeholder">Features coming soon! 🚀<br><br><span style="font-size:0.95em;">Stay tuned for more controls and spoiler protection in fullscreen mode.</span></div>
+  </div>
+  <script type="module" src="fullscreen.js"></script>
+</body>
+</html> 

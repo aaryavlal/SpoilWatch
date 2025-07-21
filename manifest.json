@@ -16,6 +16,5 @@
       "matches": ["<all_urls>"],
       "js": ["content/contentScript.js"]
     }
-  ],
-  "options_page": "options/options.html"
+  ]
 }

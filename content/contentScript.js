@@ -19,6 +19,14 @@ function getBlockedKeywords() {
   });
 }
 
+function getKeywordHistory() {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(['keywordHistory'], (res) => {
+      resolve(res.keywordHistory || []);
+    });
+  });
+}
+
 // Checks if any tags match the blocked keywords
 function shouldBlock(tagsOnPage, blockedKeywords) {
   if (!tagsOnPage || !blockedKeywords || tagsOnPage.length === 0 || blockedKeywords.length === 0) {
@@ -224,67 +232,60 @@ currentBlockedVideoElement = videoElement;
     // Mark this as the main video block
     videoElement.setAttribute('data-spoilwatch-video-blocked', 'true');
     
-    // Add a warning overlay to the video element
+    // Add a compact, calm warning overlay to the video element
     const overlay = document.createElement('div');
     overlay.className = 'spoilwatch-overlay';
     overlay.innerHTML = `
-      <div class="spoilwatch-warning">
-        <div class="spoilwatch-icon">⚠️</div>
-        <div class="spoilwatch-title">SPOILER WARNING</div>
-        <div class="spoilwatch-text">This video contains spoiler content</div>
-        <button class="spoilwatch-watch-btn">
-          Watch Anyway
-        </button>
+      <div class="spoilwatch-warning" style="background: rgba(30,34,50,0.82); border-radius: 12px; box-shadow: 0 2px 12px rgba(16,22,36,0.10); padding: 16px 18px 12px 18px; display: flex; flex-direction: column; align-items: center; min-width: 120px; max-width: 220px;">
+        <div style="font-size: 20px; margin-bottom: 2px;">⚠️</div>
+        <div class="spoilwatch-title" style="font-size: 15px; font-weight: 700; color: #fff; text-shadow: 0 1px 4px #000, 0 0 6px #7f9cf5; letter-spacing: 0.5px; margin-bottom: 2px;">SPOILER WARNING</div>
+        <div class="spoilwatch-text" style="font-size: 11px; color: #fff; font-weight: 500; opacity: 0.98; margin-bottom: 7px; text-shadow: 0 1px 4px #000, 0 0 6px #7f9cf5;">This video contains spoiler content</div>
+        <button class="spoilwatch-watch-btn" style="background: none; border: 1.5px solid #f56565; border-radius: 6px; padding: 3px 14px; color: #f56565; font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s; box-shadow: none;">Watch Anyway</button>
       </div>
     `;
     overlay.style.cssText = `
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.9);
-      border: 3px solid #ff6b6b;
-      border-radius: 16px;
-      padding: 24px;
+      top: 18%;
+      left: 24px;
+      background: none;
+      border: none;
+      border-radius: 0;
+      padding: 0;
       color: white;
-      text-align: center;
+      text-align: left;
       z-index: 9999;
-      min-width: 280px;
-      max-width: 320px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(10px);
+      min-width: 120px;
+      max-width: 220px;
+      box-shadow: none;
       pointer-events: auto;
     `;
-    
     // Add event listener to the Watch Anyway button
     const watchBtn = overlay.querySelector('.spoilwatch-watch-btn');
-    watchBtn.addEventListener('click', function() {
-      console.log('SpoilWipe: User clicked Watch Anyway button');
-      
-      // Remove the overlay
-      overlay.remove();
-      
-      // Remove blur from video
-      videoElement.style.filter = 'none';
-      
-      // Remove the blocked attribute
-      videoElement.removeAttribute('data-spoilwatch-video-blocked');
-      
-      // Mark as checked so it doesn't re-block
-      hasCheckedCurrentVideo = true;
-      
-      console.log('SpoilWipe: Video unblocked by user');
+    watchBtn.addEventListener('mouseenter', function() {
+      watchBtn.style.background = 'rgba(245,101,101,0.12)';
+      watchBtn.style.color = '#fff';
     });
-    
+    watchBtn.addEventListener('mouseleave', function() {
+      watchBtn.style.background = 'none';
+      watchBtn.style.color = '#f56565';
+    });
+    watchBtn.addEventListener('click', function() {
+      overlay.remove();
+      videoElement.style.filter = 'none';
+      videoElement.removeAttribute('data-spoilwatch-video-blocked');
+      hasCheckedCurrentVideo = true;
+      if (typeof videoElement.play === 'function') {
+        videoElement.play();
+      }
+    });
     videoElement.appendChild(overlay);
-    
-    // Force the overlay to be visible by ensuring the video element has proper positioning
+    // Pause the video when a spoiler is detected
+    if (typeof videoElement.pause === 'function') {
+      videoElement.pause();
+    }
     if (videoElement.style.position === 'static' || !videoElement.style.position) {
       videoElement.style.position = 'relative';
     }
-    
-    console.log('SpoilWipe: Overlay added to video element:', videoElement);
-    console.log('SpoilWipe: Overlay element:', overlay);
     
     // Fallback: If overlay is not visible after a short delay, append to body instead
     setTimeout(() => {
@@ -493,7 +494,7 @@ function monitorVideoChanges() {
     setTimeout(() => {
       checkYouTubeShorts();
       lastVideoId = newVideoId;
-    }, 225);
+    }, 500);
   } else {
     if (lastLoggedVideoId !== currentVideoId) {
       lastLoggedVideoId = currentVideoId;
@@ -736,6 +737,11 @@ function blockVideo(blockingHashtags) {
     videoElement.style.position = 'relative';
   }
   
+  // Pause the video when a spoiler is detected
+  if (typeof videoElement.pause === 'function') {
+    videoElement.pause();
+  }
+  
   console.log('SpoilWipe: Overlay added to video element:', videoElement);
   console.log('SpoilWipe: Overlay element:', overlay);
   
@@ -881,7 +887,115 @@ function initializeSpoilWatch() {
   console.log('SpoilWipe: Continuous monitoring started (500ms intervals)');
 }
 
-// Check if we're on YouTube
+// Listen for messages from the popup to show fullscreen overlay
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message && message.action === 'show_fullscreen_overlay') {
+    if (document.getElementById('spoilwatch-fullscreen-overlay')) return;
+    // Inject fullscreen.css if not present
+    if (!document.getElementById('sw-fullscreen-css')) {
+      const styleEl = document.createElement('link');
+      styleEl.rel = 'stylesheet';
+      styleEl.href = chrome.runtime.getURL('popup/fullscreen.css');
+      styleEl.id = 'sw-fullscreen-css';
+      document.head.appendChild(styleEl);
+    }
+    // Blur and pause video
+    let videoElement = null;
+    let wasPlaying = false;
+    function findVideoElement() {
+      const selectors = [
+        'video',
+        '.html5-video-container video',
+        '.video-stream',
+        '.html5-main-video',
+        '#movie_player video',
+        '.ytp-video',
+        'ytd-shorts video',
+        '.ytd-shorts video',
+        'ytd-video-primary-info-renderer video',
+        '.ytd-video-primary-info-renderer video'
+      ];
+      for (const selector of selectors) {
+        const el = document.querySelector(selector);
+        if (el) return el;
+      }
+      return null;
+    }
+    videoElement = findVideoElement();
+    if (videoElement) {
+      // Save if it was playing
+      wasPlaying = !videoElement.paused;
+      videoElement.style.filter = 'blur(12px)';
+      if (typeof videoElement.pause === 'function') videoElement.pause();
+    }
+    Promise.all([
+      getKeywordHistory(),
+      getBlockedKeywords()
+    ]).then(([keywordHistory, blockedKeywords]) => {
+      const overlay = document.createElement('div');
+      overlay.id = 'spoilwatch-fullscreen-overlay';
+      overlay.className = 'sw-fullscreen-overlay';
+      overlay.innerHTML = `
+        <div class="sw-col left">
+          <div class="sw-col-title">Saved Keywords</div>
+          <div id="spoilwatch-keyword-history-list" class="sw-keyword-list"></div>
+        </div>
+        <div class="sw-center">
+          <div style="margin-bottom:40px;text-align:center;">
+            <div class="sw-title">SpoilWipe Fullscreen</div>
+            <div class="sw-bio">SpoilWipe blocks spoilers in YouTube Shorts and other videos by hiding content that matches your keywords. Add keywords to protect yourself from unwanted reveals!</div>
+          </div>
+          <div class="sw-features-row">
+            <div class="sw-feature-card">Feature 2</div>
+            <div class="sw-feature-card">Feature 3</div>
+          </div>
+        </div>
+        <div class="sw-col right">
+          <button id="spoilwatch-close-fullscreen-btn" class="sw-close-btn">Close ✕</button>
+          <div class="sw-col-title">Feature 4</div>
+          <div style="color:var(--midnight-text-secondary,#a0aec0);font-style:italic;">Coming soon</div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      // Populate keyword history
+      const historyList = overlay.querySelector('#spoilwatch-keyword-history-list');
+      if (historyList && keywordHistory.length > 0) {
+        keywordHistory.forEach(kw => {
+          const item = document.createElement('div');
+          item.className = 'sw-keyword-item';
+          item.textContent = kw;
+          historyList.appendChild(item);
+        });
+      } else if (historyList) {
+        historyList.innerHTML = '<div style="color:var(--midnight-text-secondary,#a0aec0);font-style:italic;">No keywords yet.</div>';
+      }
+      // Close button logic
+      const closeBtn = document.getElementById('spoilwatch-close-fullscreen-btn');
+      closeBtn.addEventListener('click', () => {
+        overlay.remove();
+        // Unblur and resume video
+        if (videoElement) {
+          videoElement.style.filter = '';
+          if (wasPlaying && typeof videoElement.play === 'function') videoElement.play();
+        }
+      });
+      overlay.tabIndex = -1;
+      overlay.focus();
+      overlay.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          overlay.remove();
+          // Unblur and resume video
+          if (videoElement) {
+            videoElement.style.filter = '';
+            if (wasPlaying && typeof videoElement.play === 'function') videoElement.play();
+          }
+        }
+      });
+    });
+  }
+});
+
+// Check if on YouTube
 if (window.location.hostname.includes('youtube.com') || window.location.hostname.includes('youtu.be')) {
   console.log('SpoilWipe: YouTube detected, starting monitoring');
   
@@ -892,3 +1006,4 @@ if (window.location.hostname.includes('youtube.com') || window.location.hostname
     initializeSpoilWatch();
   }
 }
+

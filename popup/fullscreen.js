@@ -1,0 +1,1 @@
+console.log('SpoilWipe: Fullscreen mode active.'); 

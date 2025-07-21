@@ -22,4 +22,18 @@ export function getBlockedKeywords() {
       });
     });
   }
+
+  export function getKeywordHistory() {
+    return new Promise((resolve) => {
+      chrome.storage.sync.get(['keywordHistory'], (res) => {
+        resolve(res.keywordHistory || []);
+      });
+    });
+  }
+
+  export function saveKeywordHistory(history) {
+    return new Promise((resolve) => {
+      chrome.storage.sync.set({ keywordHistory: history }, resolve);
+    });
+  }
   
