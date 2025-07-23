@@ -1,5 +1,12 @@
 // SpoilWipe content script loaded successfully
 
+var currentVideoId = null;
+var lastLoggedVideoId = null;
+var hasCheckedCurrentVideo = false;
+var videoCheckInterval = null;
+var currentBlockedVideoElement = null;
+var observer = null;
+
 // Storage functions for getting blocked keywords
 function getBlockedKeywords() {
   return new Promise((resolve) => {
@@ -109,25 +116,46 @@ const YOUTUBE_SELECTORS = {
 
 // Scans for hashtags in the title, description, and hashtag links
 function debugScanForHashtags() {
-  console.log('SpoilWipe: Starting hashtag scan...');
-  let foundHashtags = [];
+  console.log('SpoilWipe: Starting scoped hashtag scan...');
 
-  // Only scan title, description, and hashtag elements
+  // 🧼 Clear outlines from any previous video
+  document.querySelectorAll('[data-spoilwatch-debug]').forEach(el => {
+    if (el && el.style) {
+      el.style.outline = '';
+      el.removeAttribute('data-spoilwatch-debug');
+    }
+  });
+
+  const debugEntries = [];
+
   const selectors = [
     YOUTUBE_SELECTORS.title,
     YOUTUBE_SELECTORS.description,
     YOUTUBE_SELECTORS.hashtags
   ];
+
+  const activeCard = getActiveShortsCard();
+  if (!activeCard) {
+    console.warn('SpoilWipe: No active Shorts card found');
+    return [];
+  }
+
   selectors.forEach(selector => {
-    document.querySelectorAll(selector).forEach(element => {
+    const elements = activeCard.querySelectorAll(selector);
+    elements.forEach(element => {
       if (element && element.textContent) {
         const text = element.textContent;
-        const hashtags = text.match(/#[\w]+/g);
-        if (hashtags && hashtags.length > 0) {
-          foundHashtags.push({
+        const hashtags = text.match(/#[\w]+/g) || [];
+        if (hashtags.length > 0) {
+          if (element && element.style) {
+            element.setAttribute('data-spoilwatch-debug', 'true');
+            element.style.outline = '2px dashed orange';
+          }
+          debugEntries.push({
             element,
+            selector,
             text: text.substring(0, 100),
-            hashtags,
+            hashtags: hashtags.map(tag => tag.toLowerCase()),
             tagName: element.tagName,
             className: element.className,
             id: element.id
@@ -138,10 +166,9 @@ function debugScanForHashtags() {
     });
   });
 
-  // No need to scan all elements, just the relevant ones above
-  console.log('SpoilWipe: Total elements with hashtags found:', foundHashtags.length);
-  return foundHashtags;
+  return debugEntries;
 }
+
 
 // Extracts hashtags and keyword-like words from text
 function extractHashtags(text) {
@@ -363,295 +390,235 @@ currentBlockedVideoElement = videoElement;
   }
 }
 
-let currentBlockedVideoElement = null;
 
 
 
 function isElementInViewport(el) {
+  if (!el) return false;
   const rect = el.getBoundingClientRect();
+  // Only require that some part of the video is visible
   return (
-    rect.top >= 0 &&
-    rect.left >= 0 &&
-    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    rect.bottom > 0 &&
+    rect.right > 0 &&
+    rect.top < (window.innerHeight || document.documentElement.clientHeight) &&
+    rect.left < (window.innerWidth || document.documentElement.clientWidth)
   );
 }
 
 
 // Helper function to find the actual video element
 function findVideoElement() {
-  // Try multiple selectors to find the video element
+  // Try Shorts-specific selectors first
+  let el = document.querySelector('ytd-reel-video-renderer video, ytd-reel-player-overlay-renderer video');
+  if (el) return el;
+  // Fallback to generic selectors
   const selectors = [
     'video',
-    '.html5-video-container',
-    'ytd-player',
-    '.ytd-player',
+    '.html5-video-container video',
     '.video-stream',
     '.html5-main-video',
-    '#movie_player',
-    '.ytp-video',
-    'ytd-shorts video',
-    '.ytd-shorts video',
-    'ytd-video-primary-info-renderer video',
-    '.ytd-video-primary-info-renderer video'
+    '#movie_player video',
+    '.ytp-video'
   ];
-  
   for (const selector of selectors) {
-    const element = document.querySelector(selector);
-    if (element) {
-      console.log('SpoilWipe: Found video element with selector:', selector, element);
-      return element;
-    }
+    el = document.querySelector(selector);
+    if (el) return el;
   }
-  
-  // If no video element found with selectors, try to find it by looking for the main video container
-  const videoContainers = document.querySelectorAll('*');
-  for (const container of videoContainers) {
-    if (container.tagName === 'VIDEO' || 
-        container.classList.contains('html5-video-container') ||
-        container.classList.contains('video-stream') ||
-        container.id === 'movie_player') {
-      console.log('SpoilWipe: Found video element by scanning:', container);
-      return container;
-    }
-  }
-  
-  console.log('SpoilWipe: No video element found');
   return null;
 }
 
 // Track current video to prevent duplicate detection
-let currentVideoId = null;
-let hasCheckedCurrentVideo = false;
-let videoCheckInterval = null;
-let lastLoggedVideoId = null;
+//let currentVideoId = null;
+//let hasCheckedCurrentVideo = false;
+//let videoCheckInterval = null;
+//let lastLoggedVideoId = null;
 
 function getCurrentVideoId() {
-  // Extract video ID from URL
-  const url = window.location.href;
-  const match = url.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
+  try {
+    const url = window.location.href;
+    const match = url.match(/\/shorts\/([^?&#/]+)/);
+    return match ? match[1] : null;
+  } catch (err) {
+    console.error('❌ Error getting current video ID:', err);
+    return null;
+  }
 }
 
 function clearAllBlocks() {
   console.log('SpoilWipe: Clearing all previous blocks');
 
-  // Remove all blocking styles and overlays from any video element
-  document.querySelectorAll('video, .html5-video-container, .video-stream, .html5-main-video, #movie_player, .ytp-video').forEach(el => {
-    console.log('SpoilWipe: Clearing video element:', el);
-    el.style.filter = '';
-    el.style.pointerEvents = '';
-    el.style.userSelect = '';
-    el.style.position = '';
-    el.removeAttribute('data-spoilwatch-video-blocked');
-    // Remove overlays inside video containers
-    el.querySelectorAll('.spoilwatch-overlay').forEach(overlay => overlay.remove());
-  });
-
-  // Remove overlays attached directly to the body (fallback overlays)
-  document.querySelectorAll('.spoilwatch-overlay').forEach(overlay => overlay.remove());
-
-  // Remove all debug outlines and attributes
-  document.querySelectorAll('[data-spoilwatch-debug]').forEach(el => {
-    el.style.outline = '';
-    el.removeAttribute('data-spoilwatch-debug');
-  });
-
-  // Remove added styles
-  const existingStyle = document.querySelector('style[data-spoilwatch-styles]');
-  if (existingStyle) existingStyle.remove();
-
-  // Reset the check flag and blocked element
-  hasCheckedCurrentVideo = false;
-  currentBlockedVideoElement = null;
-
-  console.log('SpoilWipe: All blocks cleared and state reset');
-}
-
-// Continuous video monitoring function
-function monitorVideoChanges() {
-  const newVideoId = getCurrentVideoId();
-
-  if (!newVideoId) return;
-
-  if (newVideoId !== currentVideoId) {
-    // Cleanup when video changes
-    document.querySelectorAll('video, .html5-video-container, .video-stream, .html5-main-video, #movie_player, .ytp-video').forEach(el => {
+  document.querySelectorAll('video').forEach(el => {
+    if (el && el.style) {
       el.style.filter = '';
       el.style.pointerEvents = '';
       el.style.userSelect = '';
       el.style.position = '';
-      el.removeAttribute('data-spoilwatch-video-blocked');
-      el.querySelectorAll('.spoilwatch-overlay').forEach(overlay => overlay.remove());
-    });
-    document.querySelectorAll('.spoilwatch-overlay').forEach(overlay => overlay.remove());
+    }
+    el.removeAttribute('data-spoilwatch-video-blocked');
+    el.removeAttribute('data-spoilwatch-blocked-id');
+    el.querySelectorAll('.spoilwatch-overlay').forEach(overlay => overlay.remove());
+  });
 
-    console.log('SpoilWipe: New video detected! Old ID:', currentVideoId, 'New ID:', newVideoId);
+  document.querySelectorAll('.spoilwatch-overlay').forEach(overlay => overlay.remove());
+
+  document.querySelectorAll('[data-spoilwatch-debug]').forEach(el => {
+    if (el && el.style) {
+      el.style.outline = '';
+      el.removeAttribute('data-spoilwatch-debug');
+    }
+  });
+
+  const existingStyle = document.querySelector('style[data-spoilwatch-styles]');
+  if (existingStyle) existingStyle.remove();
+
+  hasCheckedCurrentVideo = false;
+  currentBlockedVideoElement = null;
+}
+// Continuous video monitoring function
+function monitorVideoChanges() {
+  const newVideoId = getCurrentVideoId();
+  if (newVideoId && newVideoId !== currentVideoId) {
+    console.log('🎬 New video:', newVideoId);
+    clearAllBlocks();
     currentVideoId = newVideoId;
     hasCheckedCurrentVideo = false;
-    lastLoggedVideoId = null;
-    // Add a short delay to allow DOM to update before scanning
-    setTimeout(() => {
-      checkYouTubeShorts();
-      lastVideoId = newVideoId;
-    }, 500);
-  } else {
-    if (lastLoggedVideoId !== currentVideoId) {
-      lastLoggedVideoId = currentVideoId;
-    }
+    setTimeout(() => checkYouTubeShorts(), 500);
+    currentBlockedVideoElement = null;
   }
 }
 
 
-function checkYouTubeShorts() {
-  // Cleanup at the start to catch any new video element
-  document.querySelectorAll('video, .html5-video-container, .video-stream, .html5-main-video, #movie_player, .ytp-video').forEach(el => {
-    el.style.filter = '';
-    el.style.pointerEvents = '';
-    el.style.userSelect = '';
-    el.style.position = '';
-    el.removeAttribute('data-spoilwatch-video-blocked');
-    el.querySelectorAll('.spoilwatch-overlay').forEach(overlay => overlay.remove());
-  });
-  document.querySelectorAll('.spoilwatch-overlay').forEach(overlay => overlay.remove());
+function checkYouTubeShorts(retryCount = 0) {
+  clearAllBlocks();
 
-  console.log('checkYouTubeShorts:', { currentVideoId, hasCheckedCurrentVideo });
-  // If no video ID, skip
-  if (!currentVideoId) {
-    console.log('SpoilWipe: No current video ID, skipping check');
+  const videoElement = findVideoElement();
+  console.log('SpoilWipe: findVideoElement returned:', videoElement);
+
+  if (!videoElement || !isElementInViewport(videoElement)) {
+    console.log(`SpoilWipe: Skipping check — video not loaded or fully visible (retry ${retryCount})`);
+    if (retryCount < 5) {
+      setTimeout(() => checkYouTubeShorts(retryCount + 1), 300);
+    }
     return;
   }
-  // If already checked this video, skip
-  if (hasCheckedCurrentVideo) {
-    console.log('SpoilWipe: Video already checked, skipping');
+
+  const activeCard = getActiveShortsCard();
+  if (!activeCard) {
+    console.warn('SpoilWipe: No active Shorts card found — cannot scan hashtags.');
+    hasCheckedCurrentVideo = true;
     return;
   }
-  
-  console.log('SpoilWipe: Starting YouTube Shorts check for video:', currentVideoId);
-  
+
   getBlockedKeywords().then(blockedKeywords => {
     console.log('SpoilWipe: Loaded blocked keywords:', blockedKeywords);
-    
+
     if (!blockedKeywords || blockedKeywords.length === 0) {
       console.log('SpoilWipe: No blocked keywords found - nothing to block');
       hasCheckedCurrentVideo = true;
       return;
     }
-    
-    console.log('SpoilWipe: Found', blockedKeywords.length, 'blocked keywords:', blockedKeywords);
-    
-    // Run debug scan first - but stop after first match
-    const foundElements = debugScanForHashtags();
-    
+
+    console.log(`SpoilWipe: Found ${blockedKeywords.length} blocked keywords:`, blockedKeywords);
+
+    // Debug scan only within the active card
+    const foundElements = [];
+    const selectors = [
+      YOUTUBE_SELECTORS.title,
+      YOUTUBE_SELECTORS.description,
+      YOUTUBE_SELECTORS.hashtags
+    ];
+
+    selectors.forEach(selector => {
+      activeCard.querySelectorAll(selector).forEach(element => {
+        if (element && element.textContent) {
+          const hashtags = extractHashtags(element.textContent);
+          if (hashtags.length > 0) {
+            foundElements.push({ element, hashtags, selector });
+          }
+        }
+      });
+    });
+
     if (foundElements.length === 0) {
-      console.log('SpoilWipe: No elements with hashtags found on page');
+      console.log('SpoilWipe: No elements with hashtags found inside active Shorts card');
       hasCheckedCurrentVideo = true;
       return;
     }
-    
-    console.log('SpoilWipe: Found', foundElements.length, 'elements with hashtags');
-    
-    // Check the first element that matches - then stop
+
+    console.log(`SpoilWipe: Found ${foundElements.length} elements with hashtags in active card`);
+
     let foundMatch = false;
     for (let i = 0; i < foundElements.length && !foundMatch; i++) {
-      const item = foundElements[i];
-      // Add visual marker
-      item.element.style.outline = '2px solid orange';
-      item.element.setAttribute('data-spoilwatch-debug', `debug-${i+1}`);
-      console.log(`SpoilWipe: Testing element ${i + 1}:`, item.element);
-      
-      // Test the shouldBlock function directly
-      const shouldBlockResult = shouldBlock(item.hashtags, blockedKeywords);
-      console.log(`SpoilWipe: shouldBlock result for element ${i + 1}:`, shouldBlockResult);
-      
+      const { element, hashtags } = foundElements[i];
+      if (element && element.style) {
+        element.style.outline = '2px solid orange';
+        element.setAttribute('data-spoilwatch-debug', `debug-${i + 1}`);
+      }
+      console.log(`SpoilWipe: Testing element ${i + 1}:`, element);
+
+      const shouldBlockResult = shouldBlock(hashtags, blockedKeywords);
+      console.log(`SpoilWipe: Element ${i + 1} hashtags:`, hashtags);
+      console.log(`SpoilWipe: shouldBlock result:`, shouldBlockResult);
+
       if (shouldBlockResult) {
-        console.log(`SpoilWipe: Element ${i + 1} should be blocked! Stopping further checks.`);
-        applyBlocking(item.element, blockedKeywords);
+        console.log(`SpoilWipe: Blocking due to element ${i + 1}`);
+        applyBlocking(element, blockedKeywords);
         foundMatch = true;
-        break; // Stop checking after first match
-      } else {
-        console.log(`SpoilWipe: Element ${i + 1} should NOT be blocked`);
+        break;
       }
     }
-    
-    // If we found a match in debug scan, skip the normal detection logic
+
     if (foundMatch) {
-      console.log('SpoilWipe: Match found in debug scan, skipping normal detection logic');
+      console.log('SpoilWipe: Match found in scoped debug scan, skipping normal detection');
       hasCheckedCurrentVideo = true;
       return;
     }
-    
-    // Only run normal detection logic if no match was found in debug scan
-    console.log('SpoilWipe: Running normal detection logic...');
-    
-    // Check video title first - stop if match found
-    const titleElements = document.querySelectorAll(YOUTUBE_SELECTORS.title);
-    console.log('SpoilWipe: Found title elements:', titleElements.length);
 
-    const videoElement = findVideoElement();
-    if (!videoElement || !isElementInViewport(videoElement)) {
-    console.log("SpoilWipe: Skipping check — video not fully loaded or visible");
-    return;
-    }
+    // Fallback: Run normal detection logic (also scoped to activeCard)
+    console.log('SpoilWipe: Running fallback detection logic...');
 
-    
+    const titleElements = activeCard.querySelectorAll(YOUTUBE_SELECTORS.title);
     for (const element of titleElements) {
-      const text = extractTextFromElement(element);
-      const hashtags = extractHashtags(text);
-      console.log('🔍 SpoilWipe: Title element hashtags:', hashtags);
-      
+      const hashtags = extractHashtags(extractTextFromElement(element));
       if (shouldBlock(hashtags, blockedKeywords)) {
-        console.log('SpoilWipe: Title contains blocked hashtags, blocking video:', hashtags);
+        console.log('SpoilWipe: Title contains blocked hashtags, blocking...');
         blockVideo(hashtags);
         hasCheckedCurrentVideo = true;
-        return; // Stop processing
+        return;
       }
     }
-    
-    // Check description - stop if match found
-    const descriptionElements = document.querySelectorAll(YOUTUBE_SELECTORS.description);
-    console.log('SpoilWipe: Found description elements:', descriptionElements.length);
-    
+
+    const descriptionElements = activeCard.querySelectorAll(YOUTUBE_SELECTORS.description);
     for (const element of descriptionElements) {
-      const text = extractTextFromElement(element);
-      const hashtags = extractHashtags(text);
-      console.log('SpoilWipe: Description element hashtags:', hashtags);
-      
+      const hashtags = extractHashtags(extractTextFromElement(element));
       if (shouldBlock(hashtags, blockedKeywords)) {
-        console.log('SpoilWipe: Description contains blocked hashtags, blocking video:', hashtags);
+        console.log('SpoilWipe: Description contains blocked hashtags, blocking...');
         blockVideo(hashtags);
         hasCheckedCurrentVideo = true;
-        return; // Stop processing
+        return;
       }
     }
-    
-    // Check hashtag links specifically - stop if match found
-    const hashtagElements = document.querySelectorAll(YOUTUBE_SELECTORS.hashtags);
-    console.log('🔍 SpoilWipe: Found hashtag elements:', hashtagElements.length);
-    
+
+    const hashtagElements = activeCard.querySelectorAll(YOUTUBE_SELECTORS.hashtags);
     for (const element of hashtagElements) {
-      const hashtagText = element.textContent || element.innerText || '';
-      const hashtags = extractHashtags(hashtagText);
-      console.log('🔍 SpoilWipe: Hashtag link element hashtags:', hashtags);
-      
+      const hashtags = extractHashtags(element.textContent || '');
       if (shouldBlock(hashtags, blockedKeywords)) {
-        console.log('SpoilWipe: Hashtag links contain blocked hashtags, blocking video:', hashtags);
+        console.log('SpoilWipe: Hashtag links contain blocked hashtags, blocking...');
         blockVideo(hashtags);
         hasCheckedCurrentVideo = true;
-        return; // Stop processing
+        return;
       }
     }
-    
-    // If we get here, no matches were found
-    console.log('SpoilWipe: No blocked hashtags found, video is safe - NO BLUR APPLIED');
+
+    console.log('SpoilWipe: No blocked hashtags found, video is safe');
     hasCheckedCurrentVideo = true;
 
-    
   }).catch(error => {
-    console.error('SpoilWipe: Error checking for hashtags:', error);
+    console.error('SpoilWipe: Error during hashtag scan:', error);
     hasCheckedCurrentVideo = true;
   });
 }
+
 
 // Helper function to block the video
 function blockVideo(blockingHashtags) {
@@ -668,6 +635,15 @@ function blockVideo(blockingHashtags) {
 
   currentBlockedVideoElement = videoElement;
   
+  // Only block if not already blocked for this video
+  if (videoElement.getAttribute('data-spoilwatch-blocked-id') === currentVideoId) {
+    console.log('SpoilWipe: Video already blocked for this ID, skipping');
+    return;
+  }
+
+  // Set the unique attribute
+  videoElement.setAttribute('data-spoilwatch-blocked-id', currentVideoId);
+
   // Apply blur to video
   videoElement.style.filter = 'blur(12px)';
   videoElement.style.pointerEvents = 'auto';
@@ -723,6 +699,7 @@ function blockVideo(blockingHashtags) {
     
     // Remove the blocked attribute
     videoElement.removeAttribute('data-spoilwatch-video-blocked');
+    videoElement.removeAttribute('data-spoilwatch-blocked-id'); // Clear unique attribute
     
     // Mark as checked so it doesn't re-block
     hasCheckedCurrentVideo = true;
@@ -1005,5 +982,95 @@ if (window.location.hostname.includes('youtube.com') || window.location.hostname
   } else {
     initializeSpoilWatch();
   }
+}
+
+// Shorts video detection integration
+// Only declare these variables ONCE at the top of the script
+// let currentVideoId = null;
+// let lastLoggedVideoId = null;
+// let hasCheckedCurrentVideo = false;
+// let videoCheckInterval = null;
+
+
+
+// Called when a new video is detected
+function handleNewShortsVideo(newVideoId) {
+  console.log('🔄 SpoilWipe: New Shorts video detected! Old ID:', currentVideoId, 'New ID:', newVideoId);
+  clearAllBlocks();
+  hasCheckedCurrentVideo = false;
+  currentVideoId = newVideoId;
+
+  setTimeout(() => {
+    checkYouTubeShorts();
+  }, 500);
+}
+
+// Start observing the Shorts container for DOM changes
+function startShortsObserver() {
+  const container =
+    document.querySelector('ytd-reel-video-renderer')?.parentNode ||
+    document.querySelector('ytd-reel-player-overlay-renderer')?.parentNode ||
+    document.querySelector('ytd-reel-player-overlay-renderer') ||
+    document.querySelector('ytd-reel-video-renderer') ||
+    document.querySelector('ytd-reel-player-renderer') ||
+    document.querySelector('ytd-app');
+
+  if (!container) {
+    console.warn('⏳ SpoilWipe: Shorts container not found yet, retrying...');
+    setTimeout(startShortsObserver, 1000);
+    return;
+  }
+
+  if (observer) {
+    observer.disconnect(); // In case it's already running
+  }
+
+  observer = new MutationObserver(() => {
+    const newVideoId = getCurrentVideoId();
+    if (newVideoId && newVideoId !== currentVideoId) {
+      handleNewShortsVideo(newVideoId);
+    }
+  });
+
+  observer.observe(container, {
+    childList: true,
+    subtree: true
+  });
+
+  console.log('👀 SpoilWipe: MutationObserver is now watching Shorts DOM');
+}
+
+// Fallback: interval-based checking
+function startIntervalFallback() {
+  if (videoCheckInterval) clearInterval(videoCheckInterval);
+  videoCheckInterval = setInterval(() => {
+    const newVideoId = getCurrentVideoId();
+    if (newVideoId && newVideoId !== currentVideoId) {
+      handleNewShortsVideo(newVideoId);
+    }
+  }, 1000);
+}
+
+// Call once on script load
+startShortsObserver();
+startIntervalFallback();
+
+function getActiveShortsCard() {
+  // Try to find the visible/active Shorts card
+  // This selector may need to be adjusted for YouTube changes
+  const cards = Array.from(document.querySelectorAll('ytd-reel-video-renderer'));
+  if (!cards.length) return null;
+  // Find the card most in the viewport (or with a special class)
+  let maxVisible = 0;
+  let activeCard = null;
+  for (const card of cards) {
+    const rect = card.getBoundingClientRect();
+    const visible = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+    if (visible > maxVisible) {
+      maxVisible = visible;
+      activeCard = card;
+    }
+  }
+  return activeCard;
 }
 
