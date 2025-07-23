@@ -161,3 +161,14 @@ saveBtn.addEventListener('click', saveKeywords);
 
 // Load existing keywords when popup opens
 document.addEventListener('DOMContentLoaded', loadExistingKeywords);
+
+document.addEventListener('DOMContentLoaded', function() {
+  const fullscreenBtn = document.getElementById('spoilwatch-fullscreen-btn');
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', function() {
+      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, {action: 'show_fullscreen_overlay'});
+      });
+    });
+  }
+});

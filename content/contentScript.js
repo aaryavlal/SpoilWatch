@@ -866,109 +866,150 @@ function initializeSpoilWatch() {
 
 // Listen for messages from the popup to show fullscreen overlay
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('[SpoilWipe] Received message:', message);
   if (message && message.action === 'show_fullscreen_overlay') {
+    // Pause the current video if present
+    const video = document.querySelector('video');
+    if (video && typeof video.pause === 'function') {
+      video.pause();
+    }
+    console.log('[SpoilWipe] Creating fullscreen overlay...');
     if (document.getElementById('spoilwatch-fullscreen-overlay')) return;
-    // Inject fullscreen.css if not present
-    if (!document.getElementById('sw-fullscreen-css')) {
-      const styleEl = document.createElement('link');
-      styleEl.rel = 'stylesheet';
-      styleEl.href = chrome.runtime.getURL('popup/fullscreen.css');
-      styleEl.id = 'sw-fullscreen-css';
-      document.head.appendChild(styleEl);
-    }
-    // Blur and pause video
-    let videoElement = null;
-    let wasPlaying = false;
-    function findVideoElement() {
-      const selectors = [
-        'video',
-        '.html5-video-container video',
-        '.video-stream',
-        '.html5-main-video',
-        '#movie_player video',
-        '.ytp-video',
-        'ytd-shorts video',
-        '.ytd-shorts video',
-        'ytd-video-primary-info-renderer video',
-        '.ytd-video-primary-info-renderer video'
-      ];
-      for (const selector of selectors) {
-        const el = document.querySelector(selector);
-        if (el) return el;
-      }
-      return null;
-    }
-    videoElement = findVideoElement();
-    if (videoElement) {
-      // Save if it was playing
-      wasPlaying = !videoElement.paused;
-      videoElement.style.filter = 'blur(12px)';
-      if (typeof videoElement.pause === 'function') videoElement.pause();
-    }
-    Promise.all([
-      getKeywordHistory(),
-      getBlockedKeywords()
-    ]).then(([keywordHistory, blockedKeywords]) => {
-      const overlay = document.createElement('div');
-      overlay.id = 'spoilwatch-fullscreen-overlay';
-      overlay.className = 'sw-fullscreen-overlay';
-      overlay.innerHTML = `
-        <div class="sw-col left">
-          <div class="sw-col-title">Saved Keywords</div>
-          <div id="spoilwatch-keyword-history-list" class="sw-keyword-list"></div>
+    // Fallback overlay if anything fails
+    const overlay = document.createElement('div');
+    overlay.id = 'spoilwatch-fullscreen-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.background = 'rgba(30,34,50,0.92)';
+    overlay.style.zIndex = '999999';
+    overlay.style.display = 'block';
+    overlay.style.paddingTop = '48px';
+    // Use only the ID for the close button, no class or inline style
+    overlay.innerHTML = `
+      <button id="spoilwatch-close-fullscreen-btn" title="Close">&times;</button>
+      <div style="color:#fff;font-size:2rem;font-weight:700;margin:8px auto 0 auto;text-align:center;width:fit-content;">SpoilWipe Fullscreen Overlay</div>
+      <div class="spoilwatch-card-grid">
+        <div class="spoilwatch-card">Card 1</div>
+        <div class="spoilwatch-card">Card 2</div>
+        <div class="spoilwatch-card">Card 3</div>
+        <div class="spoilwatch-card" id="spoilwatch-history-card" style="display:flex;flex-direction:column;justify-content:flex-start;align-items:center;">
+          <div id="spoilwatch-history-title" style="font-size:1.5rem;font-weight:900;background:linear-gradient(90deg,#a084e8 0%,#7f5af0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-fill-color:transparent;margin-bottom:0.1em;letter-spacing:1.5px;text-align:center;position:relative;line-height:1.1;">Keyword History</div>
+          <div id="spoilwatch-history-list" style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:flex-start;width:100%;margin-top:0;margin-bottom:0;"></div>
+          <div id="spoilwatch-history-empty" style="color:var(--midnight-text-secondary);font-size:1rem;margin-top:10px;display:none;">No keyword history yet.</div>
         </div>
-        <div class="sw-center">
-          <div style="margin-bottom:40px;text-align:center;">
-            <div class="sw-title">SpoilWipe Fullscreen</div>
-            <div class="sw-bio">SpoilWipe blocks spoilers in YouTube Shorts and other videos by hiding content that matches your keywords. Add keywords to protect yourself from unwanted reveals!</div>
-          </div>
-          <div class="sw-features-row">
-            <div class="sw-feature-card">Feature 2</div>
-            <div class="sw-feature-card">Feature 3</div>
-          </div>
-        </div>
-        <div class="sw-col right">
-          <button id="spoilwatch-close-fullscreen-btn" class="sw-close-btn">Close ✕</button>
-          <div class="sw-col-title">Feature 4</div>
-          <div style="color:var(--midnight-text-secondary,#a0aec0);font-style:italic;">Coming soon</div>
-        </div>
-      `;
-      document.body.appendChild(overlay);
-      // Populate keyword history
-      const historyList = overlay.querySelector('#spoilwatch-keyword-history-list');
-      if (historyList && keywordHistory.length > 0) {
-        keywordHistory.forEach(kw => {
-          const item = document.createElement('div');
-          item.className = 'sw-keyword-item';
-          item.textContent = kw;
-          historyList.appendChild(item);
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // --- Keyword History Logic for Card 4 ---
+    // Helper: get blocked keywords
+    function getBlockedKeywords() {
+      return new Promise((resolve) => {
+        try {
+          chrome.storage.sync.get(['blocked'], (res) => {
+            if (chrome.runtime.lastError) {
+              resolve([]);
+              return;
+            }
+            resolve(res.blocked || []);
+          });
+        } catch {
+          resolve([]);
+        }
+      });
+    }
+    // Helper: set blocked keywords
+    function setBlockedKeywords(keywords) {
+      return new Promise((resolve) => {
+        chrome.storage.sync.set({blocked: keywords}, resolve);
+      });
+    }
+    // Helper: get keyword history
+    function getKeywordHistory() {
+      return new Promise((resolve) => {
+        chrome.storage.sync.get(['keywordHistory'], (res) => {
+          resolve(res.keywordHistory || []);
         });
-      } else if (historyList) {
-        historyList.innerHTML = '<div style="color:var(--midnight-text-secondary,#a0aec0);font-style:italic;">No keywords yet.</div>';
+      });
+    }
+
+    async function renderKeywordHistory() {
+      const historyList = document.getElementById('spoilwatch-history-list');
+      const emptyMsg = document.getElementById('spoilwatch-history-empty');
+      if (!historyList) return;
+      historyList.innerHTML = '';
+      const [history, blocked] = await Promise.all([
+        getKeywordHistory(),
+        getBlockedKeywords()
+      ]);
+      if (!history || history.length === 0) {
+        emptyMsg.style.display = '';
+        return;
       }
-      // Close button logic
-      const closeBtn = document.getElementById('spoilwatch-close-fullscreen-btn');
-      closeBtn.addEventListener('click', () => {
+      emptyMsg.style.display = 'none';
+      history.forEach(keyword => {
+        const chip = document.createElement('button');
+        chip.className = 'spoilwatch-history-chip';
+        chip.innerHTML = `<span class="hashtag">#</span>${keyword}<span class="chip-x" title="Remove">&times;</span>`;
+        chip.disabled = blocked.includes(keyword);
+        if (blocked.includes(keyword)) {
+          chip.classList.add('added');
+          chip.title = 'Already blocked';
+        } else {
+          chip.title = 'Click to add to blocked keywords';
+        }
+        // Remove keyword from history and blocked when X is clicked
+        const xBtn = chip.querySelector('.chip-x');
+        xBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          // Remove from history
+          const newHistory = (await getKeywordHistory()).filter(k => k !== keyword);
+          await new Promise(res => chrome.storage.sync.set({keywordHistory: newHistory}, res));
+          // Remove from blocked if present
+          const newBlocked = (await getBlockedKeywords()).filter(k => k !== keyword);
+          await new Promise(res => chrome.storage.sync.set({blocked: newBlocked}, res));
+          // Re-render
+          renderKeywordHistory();
+        });
+        chip.addEventListener('click', async () => {
+          if (blocked.includes(keyword)) return;
+          const newBlocked = [...blocked, keyword];
+          await setBlockedKeywords(newBlocked);
+          chip.disabled = true;
+          chip.classList.add('added');
+          chip.title = 'Already blocked';
+        });
+        historyList.appendChild(chip);
+      });
+    }
+    renderKeywordHistory();
+    // Inject fullscreen.css styles if not already present
+    if (!document.getElementById('spoilwatch-fullscreen-css')) {
+      const link = document.createElement('link');
+      link.id = 'spoilwatch-fullscreen-css';
+      link.rel = 'stylesheet';
+      link.type = 'text/css';
+      link.href = chrome.runtime.getURL('popup/fullscreen.css');
+      document.head.appendChild(link);
+    }
+    // Close logic
+    const closeBtn = document.getElementById('spoilwatch-close-fullscreen-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => overlay.remove());
+    }
+    function handleEscClose(e) {
+      if (e.key === 'Escape') {
         overlay.remove();
-        // Unblur and resume video
-        if (videoElement) {
-          videoElement.style.filter = '';
-          if (wasPlaying && typeof videoElement.play === 'function') videoElement.play();
-        }
-      });
-      overlay.tabIndex = -1;
-      overlay.focus();
-      overlay.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-          overlay.remove();
-          // Unblur and resume video
-          if (videoElement) {
-            videoElement.style.filter = '';
-            if (wasPlaying && typeof videoElement.play === 'function') videoElement.play();
-          }
-        }
-      });
-    });
+        window.removeEventListener('keydown', handleEscClose, true);
+      }
+    }
+    window.addEventListener('keydown', handleEscClose, true);
+    overlay.tabIndex = -1;
+    overlay.focus();
+    return;
   }
 });
 

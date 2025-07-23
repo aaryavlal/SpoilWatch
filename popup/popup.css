@@ -455,3 +455,29 @@ body {
   cursor: not-allowed;
   transform: none;
 }
+
+/* Fullscreen button styles */
+#spoilwatch-fullscreen-btn {
+  display: block;
+  width: 100%;
+  margin: 18px 0 0 0;
+  padding: 10px 0;
+  background: linear-gradient(90deg, #667eea 0%, #9f7aea 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+}
+#spoilwatch-fullscreen-btn:hover {
+  background: linear-gradient(90deg, #5a67d8 0%, #8b5cf6 100%);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.22);
+  transform: translateY(-2px) scale(1.03);
+}
+#spoilwatch-fullscreen-btn:active {
+  background: linear-gradient(90deg, #4c51bf 0%, #6b46c1 100%);
+  transform: translateY(0) scale(0.98);
+}
