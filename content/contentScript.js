@@ -1,5 +1,4 @@
 // SpoilWipe content script loaded successfully
-
 var currentVideoId = null;
 var lastLoggedVideoId = null;
 var hasCheckedCurrentVideo = false;
@@ -890,102 +889,420 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Use only the ID for the close button, no class or inline style
     overlay.innerHTML = `
       <button id="spoilwatch-close-fullscreen-btn" title="Close">&times;</button>
-      <div style="color:#fff;font-size:2rem;font-weight:700;margin:8px auto 0 auto;text-align:center;width:fit-content;">SpoilWipe Fullscreen Overlay</div>
-      <div class="spoilwatch-card-grid">
-        <div class="spoilwatch-card">Card 1</div>
-        <div class="spoilwatch-card">Card 2</div>
-        <div class="spoilwatch-card">Card 3</div>
-        <div class="spoilwatch-card" id="spoilwatch-history-card" style="display:flex;flex-direction:column;justify-content:flex-start;align-items:center;">
-          <div id="spoilwatch-history-title" style="font-size:1.5rem;font-weight:900;background:linear-gradient(90deg,#a084e8 0%,#7f5af0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-fill-color:transparent;margin-bottom:0.1em;letter-spacing:1.5px;text-align:center;position:relative;line-height:1.1;">Keyword History</div>
-          <div id="spoilwatch-history-list" style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:flex-start;width:100%;margin-top:0;margin-bottom:0;"></div>
-          <div id="spoilwatch-history-empty" style="color:var(--midnight-text-secondary);font-size:1rem;margin-top:10px;display:none;">No keyword history yet.</div>
+      <div style="color:#fff;font-size:2.5rem;font-weight:800;margin:16px auto 0 auto;text-align:center;width:fit-content;background:linear-gradient(135deg,#667eea 0%,#9f7aea 50%,#7f9cf5 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-fill-color:transparent;letter-spacing:1.5px;text-shadow:0 2px 4px rgba(0,0,0,0.1);">SpoilWipe Features</div>
+      <div style="color:#c3c8d4;font-size:1.1rem;text-align:center;margin:8px auto 0 auto;opacity:0.8;font-weight:500;">Choose a feature to get started</div>
+      <div class="spoilwatch-card-grid" id="feature-selection-grid">
+        <div class="spoilwatch-card feature-card" data-feature="trending-keywords">
+          <div style="font-size:2.5rem;margin-bottom:16px;opacity:0.9;">🎬</div>
+          <div class="feature-title" style="font-size:1.8rem;font-weight:900;background:linear-gradient(135deg,#667eea 0%,#9f7aea 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-fill-color:transparent;margin-bottom:0.8em;letter-spacing:1.5px;text-align:center;position:relative;line-height:1.1;">
+            Trending Movie Keywords
+          </div>
+          <div class="feature-description" style="color:#c3c8d4;font-size:1rem;text-align:center;line-height:1.5;opacity:0.9;">
+            Discover and block trending movie spoilers from the latest releases
+          </div>
+        </div>
+        <div class="spoilwatch-card feature-card" data-feature="keyword-history">
+          <div style="font-size:2.5rem;margin-bottom:16px;opacity:0.9;">📚</div>
+          <div class="feature-title" style="font-size:1.8rem;font-weight:900;background:linear-gradient(135deg,#667eea 0%,#9f7aea 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-fill-color:transparent;margin-bottom:0.8em;letter-spacing:1.5px;text-align:center;position:relative;line-height:1.1;">
+            Keyword History
+          </div>
+          <div class="feature-description" style="color:#c3c8d4;font-size:1rem;text-align:center;line-height:1.5;opacity:0.9;">
+            View and manage your blocked keywords and spoiler protection
+          </div>
+        </div>
+        <div class="spoilwatch-card feature-card" data-feature="settings">
+          <div style="font-size:2.5rem;margin-bottom:16px;opacity:0.9;">⚙️</div>
+          <div class="feature-title" style="font-size:1.8rem;font-weight:900;background:linear-gradient(135deg,#667eea 0%,#9f7aea 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-fill-color:transparent;margin-bottom:0.8em;letter-spacing:1.5px;text-align:center;position:relative;line-height:1.1;">
+            Settings
+          </div>
+          <div class="feature-description" style="color:#c3c8d4;font-size:1rem;text-align:center;line-height:1.5;opacity:0.9;">
+            Configure your spoiler protection preferences and behavior
+          </div>
+        </div>
+        <div class="spoilwatch-card feature-card" data-feature="analytics">
+          <div style="font-size:2.5rem;margin-bottom:16px;opacity:0.9;">📊</div>
+          <div class="feature-title" style="font-size:1.8rem;font-weight:900;background:linear-gradient(135deg,#667eea 0%,#9f7aea 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-fill-color:transparent;margin-bottom:0.8em;letter-spacing:1.5px;text-align:center;position:relative;line-height:1.1;">
+            Analytics
+          </div>
+          <div class="feature-description" style="color:#c3c8d4;font-size:1rem;text-align:center;line-height:1.5;opacity:0.9;">
+            View your spoiler blocking statistics and insights
+          </div>
         </div>
       </div>
     `;
     document.body.appendChild(overlay);
 
-    // --- Keyword History Logic for Card 4 ---
-    // Helper: get blocked keywords
-    function getBlockedKeywords() {
-      return new Promise((resolve) => {
-        try {
-          chrome.storage.sync.get(['blocked'], (res) => {
-            if (chrome.runtime.lastError) {
-              resolve([]);
-              return;
-            }
-            resolve(res.blocked || []);
-          });
-        } catch {
-          resolve([]);
-        }
+    // Add click handlers for feature cards
+    const featureCards = document.querySelectorAll('.feature-card');
+    featureCards.forEach(card => {
+      card.addEventListener('click', () => {
+        const feature = card.getAttribute('data-feature');
+        showFeatureView(feature, overlay);
       });
-    }
-    // Helper: set blocked keywords
-    function setBlockedKeywords(keywords) {
-      return new Promise((resolve) => {
-        chrome.storage.sync.set({blocked: keywords}, resolve);
+    });
+
+    // Function to show individual feature views
+    function showFeatureView(feature, mainOverlay) {
+      const featureSelectionGrid = document.getElementById('feature-selection-grid');
+      featureSelectionGrid.style.display = 'none';
+      
+      let featureContent = '';
+      let featureTitle = '';
+      
+      switch(feature) {
+        case 'trending-keywords':
+          featureTitle = 'Trending Movie Keywords';
+          featureContent = `
+            <div class="loading-container" id="trending-loading">
+              <div class="loading-spinner"></div>
+            </div>
+            <div id="trending-keywords-list" style="display: none; width: 100%; margin-top: 20px;"></div>
+          `;
+          break;
+        case 'keyword-history':
+          featureTitle = 'Keyword History';
+          featureContent = `
+            <div id="spoilwatch-history-list" style="display:flex;flex-wrap:wrap;gap:18px;justify-content:center;align-items:flex-start;width:100%;margin-top:20px;margin-bottom:0;"></div>
+            <div id="spoilwatch-history-empty" class="empty-state" style="display:none;">
+              <div style="font-size:3rem;margin-bottom:16px;opacity:0.6;">📝</div>
+              <div style="font-size:1.2rem;font-weight:600;margin-bottom:8px;">No keywords saved yet</div>
+              <div style="font-size:1rem;opacity:0.8;">Add some keywords to start protecting yourself from spoilers!</div>
+            </div>
+          `;
+          break;
+        case 'settings':
+          featureTitle = 'Settings';
+          featureContent = `
+            <div class="empty-state">
+              <div style="font-size:3rem;margin-bottom:16px;opacity:0.6;">⚙️</div>
+              <div style="font-size:1.2rem;font-weight:600;margin-bottom:8px;">Settings Coming Soon</div>
+              <div style="font-size:1rem;opacity:0.8;">Advanced configuration options will be available in a future update.</div>
+            </div>
+          `;
+          break;
+        case 'analytics':
+          featureTitle = 'Analytics';
+          featureContent = `
+            <div class="empty-state">
+              <div style="font-size:3rem;margin-bottom:16px;opacity:0.6;">📊</div>
+              <div style="font-size:1.2rem;font-weight:600;margin-bottom:8px;">Analytics Coming Soon</div>
+              <div style="font-size:1rem;opacity:0.8;">Detailed statistics and insights about your spoiler protection will be available soon.</div>
+            </div>
+          `;
+          break;
+      }
+      
+      // Create feature view container
+      const featureView = document.createElement('div');
+      featureView.id = 'feature-view';
+      featureView.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      `;
+      
+      featureView.innerHTML = `
+        <div style="font-size:2.5rem;font-weight:900;background:linear-gradient(90deg,#a084e8 0%,#7f5af0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-fill-color:transparent;margin-bottom:30px;letter-spacing:1.5px;text-align:center;position:relative;line-height:1.1;">
+          ${featureTitle}
+        </div>
+        <button id="back-to-features-btn" style="position:absolute;top:24px;left:32px;background:none;color:#c3c8d4;font-size:1.5rem;font-weight:700;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:color 0.18s,opacity 0.18s,background 0.12s;z-index:10001;outline:none;opacity:0.85;width:40px;height:40px;" title="Back to Features">
+          ←
+        </button>
+        ${featureContent}
+      `;
+      
+      // Add back button functionality
+      const backBtn = featureView.querySelector('#back-to-features-btn');
+      backBtn.addEventListener('click', () => {
+        featureView.remove();
+        featureSelectionGrid.style.display = 'grid';
       });
-    }
-    // Helper: get keyword history
-    function getKeywordHistory() {
-      return new Promise((resolve) => {
-        chrome.storage.sync.get(['keywordHistory'], (res) => {
-          resolve(res.keywordHistory || []);
-        });
+      
+      // Add hover effects for back button
+      backBtn.addEventListener('mouseenter', () => {
+        backBtn.style.color = '#fff';
+        backBtn.style.background = 'rgba(255,255,255,0.07)';
+        backBtn.style.opacity = '1';
       });
+      backBtn.addEventListener('mouseleave', () => {
+        backBtn.style.color = '#c3c8d4';
+        backBtn.style.background = 'none';
+        backBtn.style.opacity = '0.85';
+      });
+      
+      mainOverlay.appendChild(featureView);
+      
+      // Load feature-specific content
+      if (feature === 'trending-keywords') {
+        loadTrendingKeywords();
+      } else if (feature === 'keyword-history') {
+        loadKeywordHistory();
+      }
     }
 
-    async function renderKeywordHistory() {
-      const historyList = document.getElementById('spoilwatch-history-list');
-      const emptyMsg = document.getElementById('spoilwatch-history-empty');
-      if (!historyList) return;
-      historyList.innerHTML = '';
-      const [history, blocked] = await Promise.all([
-        getKeywordHistory(),
-        getBlockedKeywords()
-      ]);
-      if (!history || history.length === 0) {
-        emptyMsg.style.display = '';
-        return;
-      }
-      emptyMsg.style.display = 'none';
-      history.forEach(keyword => {
-        const chip = document.createElement('button');
-        chip.className = 'spoilwatch-history-chip';
-        chip.innerHTML = `<span class="hashtag">#</span>${keyword}<span class="chip-x" title="Remove">&times;</span>`;
-        chip.disabled = blocked.includes(keyword);
-        if (blocked.includes(keyword)) {
-          chip.classList.add('added');
-          chip.title = 'Already blocked';
-        } else {
-          chip.title = 'Click to add to blocked keywords';
+    // Function to load trending keywords
+    function loadTrendingKeywords() {
+      const loadingContainer = document.querySelector('#trending-loading');
+      const card = document.querySelector('#trending-keywords-list');
+      
+      if (!card || !loadingContainer) return;
+      
+      // Show loading initially
+      loadingContainer.style.display = 'flex';
+      card.style.display = 'none';
+      
+      getSmartSpoilerKeywords().then(movieKeywords => {
+        // Hide loading
+        loadingContainer.style.display = 'none';
+        card.style.display = 'block';
+        
+        if (!movieKeywords || Object.keys(movieKeywords).length === 0) {
+          card.innerHTML = `
+            <div class="error-message">
+              <div style="font-size:1.2rem;font-weight:700;margin-bottom:8px;">Failed to load trending keywords</div>
+              <div style="font-size:0.9rem;opacity:0.8;">Please check your internet connection and try again.</div>
+            </div>
+          `;
+          return;
         }
-        // Remove keyword from history and blocked when X is clicked
-        const xBtn = chip.querySelector('.chip-x');
-        xBtn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          // Remove from history
-          const newHistory = (await getKeywordHistory()).filter(k => k !== keyword);
-          await new Promise(res => chrome.storage.sync.set({keywordHistory: newHistory}, res));
-          // Remove from blocked if present
-          const newBlocked = (await getBlockedKeywords()).filter(k => k !== keyword);
-          await new Promise(res => chrome.storage.sync.set({blocked: newBlocked}, res));
-          // Re-render
-          renderKeywordHistory();
+        
+        card.innerHTML = '';
+        
+        for (const [movie, keywords] of Object.entries(movieKeywords)) {
+          const section = document.createElement('div');
+          section.className = 'movie-section';
+          
+          const title = document.createElement('div');
+          title.textContent = movie;
+          title.className = 'movie-title';
+        section.appendChild(title);
+
+        // Create container for hashtags
+        const hashtagContainer = document.createElement('div');
+        hashtagContainer.className = 'movie-keywords';
+
+        // Show first 3 hashtags
+        const visibleKeywords = keywords.slice(0, 3);
+        const hiddenKeywords = keywords.slice(3);
+
+        visibleKeywords.forEach(tag => {
+          const chip = document.createElement('span');
+          chip.className = 'spoilwatch-history-chip';
+          chip.textContent = tag;
+          chip.style.cursor = 'pointer';
+          chip.title = 'Click to add to blocked keywords';
+          
+          // Check if already blocked
+          getBlockedKeywords().then(blockedKeywords => {
+            if (blockedKeywords.includes(tag.replace('#', ''))) {
+              chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
+              chip.style.color = '#fff';
+              chip.style.opacity = '0.85';
+              chip.title = 'Already blocked';
+              chip.style.cursor = 'not-allowed';
+            }
+          });
+          
+          // Add click handler
+          chip.addEventListener('click', async () => {
+            const blockedKeywords = await getBlockedKeywords();
+            const cleanTag = tag.replace('#', '');
+            
+            if (blockedKeywords.includes(cleanTag)) {
+              return; // Already blocked
+            }
+            
+            // Add to blocked keywords
+            const newBlockedKeywords = [...blockedKeywords, cleanTag];
+            await new Promise(resolve => {
+              chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
+            });
+            
+            // Update chip appearance
+            chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
+            chip.style.color = '#fff';
+            chip.style.opacity = '0.85';
+            chip.title = 'Already blocked';
+            chip.style.cursor = 'not-allowed';
+            
+            console.log(`Added "${cleanTag}" to blocked keywords`);
+          });
+          
+          hashtagContainer.appendChild(chip);
         });
-        chip.addEventListener('click', async () => {
-          if (blocked.includes(keyword)) return;
-          const newBlocked = [...blocked, keyword];
-          await setBlockedKeywords(newBlocked);
-          chip.disabled = true;
-          chip.classList.add('added');
-          chip.title = 'Already blocked';
-        });
-        historyList.appendChild(chip);
-      });
+
+        section.appendChild(hashtagContainer);
+
+        // Add "See More" button if there are hidden keywords
+        if (hiddenKeywords.length > 0) {
+          const seeMoreBtn = document.createElement('button');
+          seeMoreBtn.textContent = `See More (${hiddenKeywords.length})`;
+          seeMoreBtn.className = 'see-more-btn';
+
+          // Hidden container for additional hashtags
+          const hiddenContainer = document.createElement('div');
+          hiddenContainer.className = 'hidden-keywords';
+
+          hiddenKeywords.forEach(tag => {
+            const chip = document.createElement('span');
+            chip.className = 'spoilwatch-history-chip';
+            chip.textContent = tag;
+            chip.style.cursor = 'pointer';
+            chip.title = 'Click to add to blocked keywords';
+            
+            // Check if already blocked
+            getBlockedKeywords().then(blockedKeywords => {
+              if (blockedKeywords.includes(tag.replace('#', ''))) {
+                chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
+                chip.style.color = '#fff';
+                chip.style.opacity = '0.85';
+                chip.title = 'Already blocked';
+                chip.style.cursor = 'not-allowed';
+              }
+            });
+            
+            // Add click handler
+            chip.addEventListener('click', async () => {
+              const blockedKeywords = await getBlockedKeywords();
+              const cleanTag = tag.replace('#', '');
+              
+              if (blockedKeywords.includes(cleanTag)) {
+                return; // Already blocked
+              }
+              
+              // Add to blocked keywords
+              const newBlockedKeywords = [...blockedKeywords, cleanTag];
+              await new Promise(resolve => {
+                chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
+              });
+              
+              // Update chip appearance
+              chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
+              chip.style.color = '#fff';
+              chip.style.opacity = '0.85';
+              chip.title = 'Already blocked';
+              chip.style.cursor = 'not-allowed';
+              
+              console.log(`Added "${cleanTag}" to blocked keywords`);
+            });
+            
+            hiddenContainer.appendChild(chip);
+          });
+
+          section.appendChild(hiddenContainer);
+
+          // Toggle functionality
+          seeMoreBtn.addEventListener('click', () => {
+            if (hiddenContainer.style.display === 'none') {
+              hiddenContainer.style.display = 'flex';
+              seeMoreBtn.textContent = 'See Less';
+            } else {
+              hiddenContainer.style.display = 'none';
+              seeMoreBtn.textContent = `See More (${hiddenKeywords.length})`;
+            }
+          });
+
+          section.appendChild(seeMoreBtn);
+        }
+
+        card.appendChild(section);
+      }
+    });
     }
-    renderKeywordHistory();
+
+    // Function to load keyword history
+    function loadKeywordHistory() {
+      // Helper: get blocked keywords
+      function getBlockedKeywords() {
+        return new Promise((resolve) => {
+          try {
+            chrome.storage.sync.get(['blocked'], (res) => {
+              if (chrome.runtime.lastError) {
+                resolve([]);
+                return;
+              }
+              resolve(res.blocked || []);
+            });
+          } catch {
+            resolve([]);
+          }
+        });
+      }
+      // Helper: set blocked keywords
+      function setBlockedKeywords(keywords) {
+        return new Promise((resolve) => {
+          chrome.storage.sync.set({blocked: keywords}, resolve);
+        });
+      }
+      // Helper: get keyword history
+      function getKeywordHistory() {
+        return new Promise((resolve) => {
+          chrome.storage.sync.get(['keywordHistory'], (res) => {
+            resolve(res.keywordHistory || []);
+          });
+        });
+      }
+
+      async function renderKeywordHistory() {
+        const historyList = document.getElementById('spoilwatch-history-list');
+        const emptyMsg = document.getElementById('spoilwatch-history-empty');
+        if (!historyList || !emptyMsg) return;
+        
+        historyList.innerHTML = '';
+        const [history, blocked] = await Promise.all([
+          getKeywordHistory(),
+          getBlockedKeywords()
+        ]);
+        
+        if (!history || history.length === 0) {
+          emptyMsg.style.display = 'block';
+          return;
+        }
+        
+        emptyMsg.style.display = 'none';
+        history.forEach(keyword => {
+          const chip = document.createElement('button');
+          chip.className = 'spoilwatch-history-chip';
+          chip.innerHTML = `<span class="hashtag">#</span>${keyword}<span class="chip-x" title="Remove">&times;</span>`;
+          chip.disabled = blocked.includes(keyword);
+          if (blocked.includes(keyword)) {
+            chip.classList.add('added');
+            chip.title = 'Already blocked';
+          } else {
+            chip.title = 'Click to add to blocked keywords';
+          }
+          // Remove keyword from history and blocked when X is clicked
+          const xBtn = chip.querySelector('.chip-x');
+          xBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            // Remove from history
+            const newHistory = (await getKeywordHistory()).filter(k => k !== keyword);
+            await new Promise(res => chrome.storage.sync.set({keywordHistory: newHistory}, res));
+            // Remove from blocked if present
+            const newBlocked = (await getBlockedKeywords()).filter(k => k !== keyword);
+            await new Promise(res => chrome.storage.sync.set({blocked: newBlocked}, res));
+            // Re-render
+            renderKeywordHistory();
+          });
+          chip.addEventListener('click', async () => {
+            if (blocked.includes(keyword)) return;
+            const newBlocked = [...blocked, keyword];
+            await setBlockedKeywords(newBlocked);
+            chip.disabled = true;
+            chip.classList.add('added');
+            chip.title = 'Already blocked';
+          });
+          historyList.appendChild(chip);
+        });
+      }
+      renderKeywordHistory();
+    }
+
+
     // Inject fullscreen.css styles if not already present
     if (!document.getElementById('spoilwatch-fullscreen-css')) {
       const link = document.createElement('link');
@@ -998,12 +1315,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Close logic
     const closeBtn = document.getElementById('spoilwatch-close-fullscreen-btn');
     if (closeBtn) {
-      closeBtn.addEventListener('click', () => overlay.remove());
+      closeBtn.addEventListener('click', () => {
+        // Check if a feature view is currently open
+        const featureView = document.getElementById('feature-view');
+        const featureSelectionGrid = document.getElementById('feature-selection-grid');
+        
+        if (featureView && featureSelectionGrid) {
+          // If feature view is open, go back to feature selection grid
+          featureView.remove();
+          featureSelectionGrid.style.display = 'grid';
+        } else {
+          // If already on feature selection grid, close the entire overlay
+          overlay.remove();
+        }
+      });
     }
     function handleEscClose(e) {
       if (e.key === 'Escape') {
-        overlay.remove();
-        window.removeEventListener('keydown', handleEscClose, true);
+        // Check if a feature view is currently open
+        const featureView = document.getElementById('feature-view');
+        const featureSelectionGrid = document.getElementById('feature-selection-grid');
+        
+        if (featureView && featureSelectionGrid) {
+          // If feature view is open, go back to feature selection grid
+          featureView.remove();
+          featureSelectionGrid.style.display = 'grid';
+        } else {
+          // If already on feature selection grid, close the entire overlay
+          overlay.remove();
+          window.removeEventListener('keydown', handleEscClose, true);
+        }
       }
     }
     window.addEventListener('keydown', handleEscClose, true);
@@ -1113,5 +1454,37 @@ function getActiveShortsCard() {
     }
   }
   return activeCard;
+}
+
+// --- Trending Movie Keywords logic (from utils/smartKeywords.js) ---
+const OMDB_API_KEY = '797f9541';
+
+function toHashtag(str) {
+  return '#' + str.toLowerCase().replace(/\s+/g, '');
+}
+
+async function getSmartSpoilerKeywords(limit = 5) {
+  const movieTitles = ['The Fantastic Four: First Steps', 'Happy Gilmore 2', 'Superman', 'Eddington', 'F1: The Movie']; // you can replace or fetch trending list
+  const results = {};
+
+  for (const title of movieTitles.slice(0, limit)) {
+    try {
+      const res = await fetch(`https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}`);
+      const data = await res.json();
+      const keywords = new Set();
+
+      if (data.Title) keywords.add(toHashtag(data.Title));
+      if (data.Genre) data.Genre.split(',').forEach(g => keywords.add(toHashtag(g)));
+      if (data.Actors) data.Actors.split(',').forEach(a => keywords.add(toHashtag(a)));
+      if (data.Director) data.Director.split(',').forEach(d => keywords.add(toHashtag(d)));
+      if (data.Year) keywords.add(`#${data.Year}`);
+
+      results[data.Title || title] = [...keywords].slice(0, 10); // max 10 hashtags
+    } catch (err) {
+      console.error(`OMDb fetch failed for "${title}":`, err);
+    }
+  }
+
+  return results;
 }
 

@@ -4,7 +4,10 @@
   "version": "1.0",
   "description": "Blocks spoiler videos from websites like TikTok or YouTube.",
   "permissions": ["storage", "scripting", "activeTab"],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>",
+    "https://api.themoviedb.org/*"
+  ],
   "action": {
     "default_popup": "popup/popup.html"
   },
@@ -17,7 +20,10 @@
         "https://www.youtube.com/*",
         "https://youtu.be/*"
       ],
-      "js": ["content/contentScript.js"]
+      "js": [
+        "utils/smartKeywords.js",
+        "content/contentScript.js"
+      ]
     }
   ],
   "web_accessible_resources": [
