@@ -387,6 +387,71 @@ currentBlockedVideoElement = videoElement;
       document.head.appendChild(style);
     }
   }
+  
+  // Add analytics tracking for blocked keywords (capped at 1 per video)
+  const text = extractTextFromElement(element);
+  const hashtags = extractHashtags(text);
+  if (hashtags.length > 0) {
+    console.log('[SpoilWipe][Analytics] Video blocked, tracking hashtags:', hashtags);
+    
+    // Find which specific blocked keyword matched
+    const matchedKeywords = [];
+    hashtags.forEach(tag => {
+      const cleanTag = tag.replace('#', '').toLowerCase();
+      if (!cleanTag) return;
+      
+      // Check if this hashtag matches any blocked keyword
+      blockedKeywords.forEach(blockedKeyword => {
+        const cleanBlockedKeyword = blockedKeyword.toLowerCase().trim();
+        if (cleanTag === cleanBlockedKeyword || 
+            (cleanTag.length >= 4 && cleanBlockedKeyword.length >= 4 && 
+             (cleanTag.includes(cleanBlockedKeyword) || cleanBlockedKeyword.includes(cleanTag)))) {
+          matchedKeywords.push(cleanBlockedKeyword);
+        }
+      });
+    });
+    
+    if (matchedKeywords.length > 0) {
+      console.log('[SpoilWipe][Analytics] Matched keywords that triggered block:', matchedKeywords);
+      
+      // Get the current video ID to track unique keywords per video
+      const videoId = getCurrentVideoId();
+      
+      getKeywordBlockCounts().then(counts => {
+        console.log('[SpoilWipe][Analytics] Counts before increment:', counts);
+        
+        // Check if we've already counted ANY keyword for this video
+        const videoAlreadyCounted = Object.keys(counts).some(keyword => {
+          const videoKeywordKey = `${videoId}_${keyword}`;
+          return counts[videoKeywordKey] !== undefined;
+        });
+        
+        if (videoAlreadyCounted) {
+          console.log(`[SpoilWipe][Analytics] Video ${videoId} already counted, skipping additional keywords`);
+          return;
+        }
+        
+        // Only count the first matched keyword for this video
+        const firstMatchedKeyword = matchedKeywords[0];
+        const videoKeywordKey = `${videoId}_${firstMatchedKeyword}`;
+        
+        if (!counts[firstMatchedKeyword]) counts[firstMatchedKeyword] = 0;
+        counts[firstMatchedKeyword]++;
+        counts[videoKeywordKey] = 1; // Mark this video as counted for this keyword
+        
+        console.log(`[SpoilWipe][Analytics] 🔥 BLOCKED: "${firstMatchedKeyword}" = ${counts[firstMatchedKeyword]} times blocked (capped at 1 per video)`);
+        
+        console.log('[SpoilWipe][Analytics] Counts after increment:', counts);
+        chrome.storage.sync.set({ keywordBlockCounts: counts }, () => {
+          if (chrome.runtime.lastError) {
+            console.error('[SpoilWipe][Analytics] Error saving keywordBlockCounts:', chrome.runtime.lastError);
+          } else {
+            console.log('[SpoilWipe][Analytics] Updated keywordBlockCounts:', counts);
+          }
+        });
+      });
+    }
+  }
 }
 
 
@@ -621,7 +686,6 @@ function checkYouTubeShorts(retryCount = 0) {
 
 // Helper function to block the video
 function blockVideo(blockingHashtags) {
-  console.log('SpoilWipe: Blocking video due to hashtags:', blockingHashtags);
   
   // Find the main video element using our helper function
   const videoElement = findVideoElement();
@@ -642,6 +706,9 @@ function blockVideo(blockingHashtags) {
 
   // Set the unique attribute
   videoElement.setAttribute('data-spoilwatch-blocked-id', currentVideoId);
+
+  
+  console.log('[SpoilWipe][Analytics] blockVideo called with:', blockingHashtags);
 
   // Apply blur to video
   videoElement.style.filter = 'blur(12px)';
@@ -800,6 +867,29 @@ function blockVideo(blockingHashtags) {
     `;
     document.head.appendChild(style);
   }
+  // Increment analytics for each keyword
+  getKeywordBlockCounts().then(counts => {
+    console.log('[SpoilWipe][Analytics] Counts before increment:', counts);
+    let updated = false;
+    blockingHashtags.forEach(tag => {
+      const cleanTag = tag.replace('#', '').toLowerCase();
+      if (!cleanTag) return;
+      if (!counts[cleanTag]) counts[cleanTag] = 0;
+      counts[cleanTag]++;
+      console.log(`[SpoilWipe][Analytics] 🔥 BLOCKED: "${cleanTag}" = ${counts[cleanTag]} times blocked`);
+      updated = true;
+    });
+    console.log('[SpoilWipe][Analytics] Counts after increment:', counts);
+    if (updated) {
+      chrome.storage.sync.set({ keywordBlockCounts: counts }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('[SpoilWipe][Analytics] Error saving keywordBlockCounts:', chrome.runtime.lastError);
+        } else {
+          console.log('[SpoilWipe][Analytics] Updated keywordBlockCounts:', counts);
+        }
+      });
+    }
+  });
 }
 
 // Initial check when page loads
@@ -931,7 +1021,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       </div>
     `;
     document.body.appendChild(overlay);
-
+    
+    // Disable YouTube page scrolling
+    document.body.classList.add('spoilwatch-overlay-open');
+    document.documentElement.classList.add('spoilwatch-overlay-open');
+    
     // Add click handlers for feature cards
     const featureCards = document.querySelectorAll('.feature-card');
     featureCards.forEach(card => {
@@ -983,10 +1077,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'analytics':
           featureTitle = 'Analytics';
           featureContent = `
-            <div class="empty-state">
+            <div id="analytics-bar-graph" style="width:100%;max-width:600px;margin:0 auto 32px auto;"></div>
+            <div class="empty-state" id="analytics-empty-state" style="display:none;">
               <div style="font-size:3rem;margin-bottom:16px;opacity:0.6;">📊</div>
-              <div style="font-size:1.2rem;font-weight:600;margin-bottom:8px;">Analytics Coming Soon</div>
-              <div style="font-size:1rem;opacity:0.8;">Detailed statistics and insights about your spoiler protection will be available soon.</div>
+              <div style="font-size:1.2rem;font-weight:600;margin-bottom:8px;">No analytics data yet</div>
+              <div style="font-size:1rem;opacity:0.8;">No keywords have been blocked yet. Block some spoilers to see stats!</div>
+            </div>
+            <div style="text-align:center;margin-top:40px;">
+              <button id="clear-analytics-btn" style="background:linear-gradient(135deg,rgba(245,101,101,0.8) 0%,rgba(237,100,166,0.6) 100%);color:#fff;border:none;border-radius:20px;padding:12px 24px;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);box-shadow:0 4px 12px rgba(245,101,101,0.2),inset 0 1px 0 rgba(255,255,255,0.1);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);border:1px solid rgba(255,255,255,0.1);">
+                Clear All Analytics Data
+              </button>
             </div>
           `;
           break;
@@ -1041,6 +1141,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         loadTrendingKeywords();
       } else if (feature === 'keyword-history') {
         loadKeywordHistory();
+      } else if (feature === 'analytics') {
+        renderAnalyticsBarGraph();
+        
+        // Add clear analytics button functionality
+        const clearBtn = featureView.querySelector('#clear-analytics-btn');
+        if (clearBtn) {
+          clearBtn.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to clear all analytics data? This action cannot be undone.')) {
+              await chrome.storage.sync.set({ keywordBlockCounts: {} });
+              console.log('[SpoilWipe][Analytics] All analytics data cleared');
+              renderAnalyticsBarGraph(); // Re-render to show empty state
+            }
+          });
+          
+          // Add hover effects for clear button
+          clearBtn.addEventListener('mouseenter', () => {
+            clearBtn.style.background = 'linear-gradient(135deg,rgba(220,80,80,0.9) 0%,rgba(200,70,140,0.7) 100%)';
+            clearBtn.style.transform = 'translateY(-2px) scale(1.05)';
+            clearBtn.style.boxShadow = '0 6px 16px rgba(245,101,101,0.3),inset 0 1px 0 rgba(255,255,255,0.2)';
+          });
+          clearBtn.addEventListener('mouseleave', () => {
+            clearBtn.style.background = 'linear-gradient(135deg,rgba(245,101,101,0.8) 0%,rgba(237,100,166,0.6) 100%)';
+            clearBtn.style.transform = 'translateY(0) scale(1)';
+            clearBtn.style.boxShadow = '0 4px 12px rgba(245,101,101,0.2),inset 0 1px 0 rgba(255,255,255,0.1)';
+          });
+          clearBtn.addEventListener('active', () => {
+            clearBtn.style.transform = 'translateY(0) scale(0.98)';
+          });
+        }
       }
     }
 
@@ -1121,6 +1250,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             await new Promise(resolve => {
               chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
             });
+
+            // Also add to keywordHistory if not present
+            const keywordHistory = await getKeywordHistory();
+            if (!keywordHistory.includes(cleanTag)) {
+              const newHistory = [...keywordHistory, cleanTag];
+              await new Promise(resolve => {
+                chrome.storage.sync.set({keywordHistory: newHistory}, resolve);
+              });
+            }
             
             // Update chip appearance
             chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
@@ -1129,7 +1267,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             chip.title = 'Already blocked';
             chip.style.cursor = 'not-allowed';
             
-            console.log(`Added "${cleanTag}" to blocked keywords`);
+            console.log(`Added "${cleanTag}" to blocked keywords and keyword history`);
           });
           
           hashtagContainer.appendChild(chip);
@@ -1179,6 +1317,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               await new Promise(resolve => {
                 chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
               });
+
+              // Also add to keywordHistory if not present
+              const keywordHistory = await getKeywordHistory();
+              if (!keywordHistory.includes(cleanTag)) {
+                const newHistory = [...keywordHistory, cleanTag];
+                await new Promise(resolve => {
+                  chrome.storage.sync.set({keywordHistory: newHistory}, resolve);
+                });
+              }
               
               // Update chip appearance
               chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
@@ -1187,7 +1334,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               chip.title = 'Already blocked';
               chip.style.cursor = 'not-allowed';
               
-              console.log(`Added "${cleanTag}" to blocked keywords`);
+              console.log(`Added "${cleanTag}" to blocked keywords and keyword history`);
             });
             
             hiddenContainer.appendChild(chip);
@@ -1279,12 +1426,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const xBtn = chip.querySelector('.chip-x');
           xBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            // Remove from history
-            const newHistory = (await getKeywordHistory()).filter(k => k !== keyword);
-            await new Promise(res => chrome.storage.sync.set({keywordHistory: newHistory}, res));
             // Remove from blocked if present
             const newBlocked = (await getBlockedKeywords()).filter(k => k !== keyword);
             await new Promise(res => chrome.storage.sync.set({blocked: newBlocked}, res));
+            // Do NOT remove from keywordHistory, only from blocked
             // Re-render
             renderKeywordHistory();
           });
@@ -1327,6 +1472,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         } else {
           // If already on feature selection grid, close the entire overlay
           overlay.remove();
+          // Re-enable YouTube page scrolling
+          document.body.classList.remove('spoilwatch-overlay-open');
+          document.documentElement.classList.remove('spoilwatch-overlay-open');
         }
       });
     }
@@ -1343,6 +1491,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         } else {
           // If already on feature selection grid, close the entire overlay
           overlay.remove();
+          // Re-enable YouTube page scrolling
+          document.body.classList.remove('spoilwatch-overlay-open');
+          document.documentElement.classList.remove('spoilwatch-overlay-open');
           window.removeEventListener('keydown', handleEscClose, true);
         }
       }
@@ -1404,7 +1555,7 @@ function startShortsObserver() {
   }
 
   if (observer) {
-    observer.disconnect(); // In case it's already running
+    observer.disconnect(); 
   }
 
   observer = new MutationObserver(() => {
@@ -1419,10 +1570,9 @@ function startShortsObserver() {
     subtree: true
   });
 
-  console.log('👀 SpoilWipe: MutationObserver is now watching Shorts DOM');
+  console.log('SpoilWipe: MutationObserver is now watching Shorts DOM');
 }
 
-// Fallback: interval-based checking
 function startIntervalFallback() {
   if (videoCheckInterval) clearInterval(videoCheckInterval);
   videoCheckInterval = setInterval(() => {
@@ -1433,16 +1583,12 @@ function startIntervalFallback() {
   }, 1000);
 }
 
-// Call once on script load
 startShortsObserver();
 startIntervalFallback();
 
 function getActiveShortsCard() {
-  // Try to find the visible/active Shorts card
-  // This selector may need to be adjusted for YouTube changes
   const cards = Array.from(document.querySelectorAll('ytd-reel-video-renderer'));
   if (!cards.length) return null;
-  // Find the card most in the viewport (or with a special class)
   let maxVisible = 0;
   let activeCard = null;
   for (const card of cards) {
@@ -1456,7 +1602,6 @@ function getActiveShortsCard() {
   return activeCard;
 }
 
-// --- Trending Movie Keywords logic (from utils/smartKeywords.js) ---
 const OMDB_API_KEY = '797f9541';
 
 function toHashtag(str) {
@@ -1486,5 +1631,62 @@ async function getSmartSpoilerKeywords(limit = 5) {
   }
 
   return results;
+}
+
+function getKeywordBlockCounts() {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(['keywordBlockCounts'], (res) => {
+      resolve(res.keywordBlockCounts || {});
+    });
+  });
+}
+function setKeywordBlockCounts(counts) {
+  return new Promise((resolve) => {
+    chrome.storage.sync.set({ keywordBlockCounts: counts }, resolve);
+  });
+}
+
+async function renderAnalyticsBarGraph() {
+  console.log('[SpoilWipe][Analytics] renderAnalyticsBarGraph called');
+  const graphContainer = document.getElementById('analytics-bar-graph');
+  const emptyState = document.getElementById('analytics-empty-state');
+  if (!graphContainer || !emptyState) {
+    console.error('[SpoilWipe][Analytics] Missing graphContainer or emptyState elements');
+    return;
+  }
+  
+  console.log('[SpoilWipe][Analytics] Fetching keywordBlockCounts from storage...');
+  const counts = await getKeywordBlockCounts();
+  console.log('[SpoilWipe][Analytics] Counts loaded for bar graph:', counts);
+  console.log('[SpoilWipe][Analytics] Counts type:', typeof counts);
+  console.log('[SpoilWipe][Analytics] Counts keys:', Object.keys(counts));
+  
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  console.log('[SpoilWipe][Analytics] Sorted entries:', entries);
+  
+  if (entries.length === 0) {
+    console.log('[SpoilWipe][Analytics] No entries found, showing empty state');
+    graphContainer.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  console.log('[SpoilWipe][Analytics] Rendering bar graph with entries:', entries);
+  emptyState.style.display = 'none';
+  // Find max count for scaling
+  const maxCount = Math.max(...entries.map(e => e[1]));
+  console.log('[SpoilWipe][Analytics] Max count for scaling:', maxCount);
+  
+  graphContainer.innerHTML = entries.map(([keyword, count]) => `
+    <div style="display:flex;align-items:center;margin-bottom:14px;">
+      <span style="min-width:110px;font-weight:700;font-size:1.1rem;color:#7f9cf5;letter-spacing:0.5px;">#${keyword}</span>
+      <div style="flex:1;margin:0 12px;background:rgba(127,156,245,0.12);border-radius:8px;overflow:hidden;height:24px;position:relative;">
+        <div style="height:100%;width:${(count/maxCount)*100}%;background:linear-gradient(90deg,#667eea,#9f7aea);border-radius:8px;transition:width 0.4s;"></div>
+      </div>
+      <span style="min-width:32px;text-align:right;font-size:1.1rem;font-weight:700;color:#c3c8d4;">${count}</span>
+    </div>
+  `).join('');
+  
+  console.log('[SpoilWipe][Analytics] Bar graph rendered successfully');
 }
 
