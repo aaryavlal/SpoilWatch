@@ -61,7 +61,7 @@ html.spoilwatch-overlay-open {
   overflow-y: auto;
   background: linear-gradient(135deg, #0a0e1a 0%, #1a2236 50%, #232b41 100%);
   scroll-behavior: smooth;
-  padding-bottom: 200px; 
+  padding-bottom: 300px; 
 
 }
 
@@ -606,4 +606,189 @@ html.spoilwatch-overlay-open {
   display: block;
   margin-bottom: 16px;
   opacity: 0.6;
+}
+
+/* Settings styling */
+.settings-section {
+  background: rgba(26, 34, 54, 0.6);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.settings-section:hover {
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.settings-section-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 20px;
+  text-align: center;
+  background: linear-gradient(135deg, #667eea 0%, #9f7aea 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.settings-option {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: rgba(35, 43, 65, 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.settings-option:hover {
+  background: rgba(35, 43, 65, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateX(4px);
+}
+
+.settings-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.settings-label-text {
+  min-width: 200px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.settings-description {
+  font-size: 0.9rem;
+  color: var(--midnight-text-secondary);
+  margin-left: 32px;
+  line-height: 1.4;
+  opacity: 0.8;
+}
+
+/* Custom checkbox styling */
+.settings-checkbox {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  background: rgba(26, 34, 54, 0.8);
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.settings-label input[type="checkbox"] {
+  display: none;
+}
+
+.settings-label input[type="checkbox"]:checked + .settings-checkbox {
+  background: linear-gradient(135deg, #667eea, #9f7aea);
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.settings-label input[type="checkbox"]:checked + .settings-checkbox::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Select dropdown styling */
+.settings-select {
+  background: rgba(26, 34, 54, 0.8);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  min-width: 150px;
+}
+
+.settings-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.settings-select option {
+  background: #1a2236;
+  color: #fff;
+  padding: 8px;
+}
+
+/* Save button styling */
+.settings-save-btn {
+  background: linear-gradient(135deg, #667eea 0%, #9f7aea 100%);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 12px 32px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 16px rgba(102, 126, 234, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 40px;
+}
+
+.settings-save-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.settings-save-btn:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #8b5cf6 100%);
+  box-shadow: 
+    0 6px 20px rgba(102, 126, 234, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.settings-save-btn:hover::before {
+  left: 100%;
+}
+
+.settings-save-btn:active {
+  transform: translateY(0) scale(0.98);
 }

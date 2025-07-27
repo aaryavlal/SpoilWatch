@@ -1067,10 +1067,120 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'settings':
           featureTitle = 'Settings';
           featureContent = `
-            <div class="empty-state">
-              <div style="font-size:3rem;margin-bottom:16px;opacity:0.6;">⚙️</div>
-              <div style="font-size:1.2rem;font-weight:600;margin-bottom:8px;">Settings Coming Soon</div>
-              <div style="font-size:1rem;opacity:0.8;">Advanced configuration options will be available in a future update.</div>
+            <div style="width:100%;max-width:700px;margin:0 auto;">
+              <!-- Spoiler Block Preferences -->
+              <div class="settings-section">
+                <h3 class="settings-section-title">Spoiler Block Preferences</h3>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <input type="checkbox" id="auto-block-enabled" checked>
+                    <span class="settings-checkbox"></span>
+                    Enable automatic spoiler blocking
+                  </label>
+                  <p class="settings-description">Automatically block videos containing your blocked keywords</p>
+                </div>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <input type="checkbox" id="partial-match-enabled" checked>
+                    <span class="settings-checkbox"></span>
+                    Enable partial keyword matching
+                  </label>
+                  <p class="settings-description">Block videos even if keywords partially match (e.g., "marvel" matches "#marvelrivals")</p>
+                </div>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <span class="settings-label-text">Block sensitivity</span>
+                    <select id="block-sensitivity" class="settings-select">
+                      <option value="strict">Strict (exact matches only)</option>
+                      <option value="normal" selected>Normal (recommended)</option>
+                      <option value="loose">Loose (more aggressive)</option>
+                    </select>
+                  </label>
+                  <p class="settings-description">How strictly to match keywords when blocking content</p>
+                </div>
+              </div>
+
+              <!-- Theme and Personalization -->
+              <div class="settings-section">
+                <h3 class="settings-section-title">Theme and Personalization</h3>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <span class="settings-label-text">Theme</span>
+                    <select id="theme-select" class="settings-select">
+                      <option value="auto" selected>Auto (follow system)</option>
+                      <option value="dark">Dark</option>
+                      <option value="light">Light</option>
+                    </select>
+                  </label>
+                  <p class="settings-description">Choose your preferred color theme</p>
+                </div>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <input type="checkbox" id="animations-enabled" checked>
+                    <span class="settings-checkbox"></span>
+                    Enable animations and transitions
+                  </label>
+                  <p class="settings-description">Show smooth animations when interacting with the extension</p>
+                </div>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <span class="settings-label-text">Warning overlay style</span>
+                    <select id="warning-style" class="settings-select">
+                      <option value="compact" selected>Compact</option>
+                      <option value="detailed">Detailed</option>
+                      <option value="minimal">Minimal</option>
+                    </select>
+                  </label>
+                  <p class="settings-description">Choose how spoiler warnings appear on blocked videos</p>
+                </div>
+              </div>
+
+              <!-- Content Source Settings -->
+              <div class="settings-section">
+                <h3 class="settings-section-title">Content Source Settings</h3>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <input type="checkbox" id="youtube-enabled" checked>
+                    <span class="settings-checkbox"></span>
+                    Monitor YouTube videos
+                  </label>
+                  <p class="settings-description">Block spoilers on YouTube Shorts and regular videos</p>
+                </div>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <input type="checkbox" id="trending-keywords-enabled" checked>
+                    <span class="settings-checkbox"></span>
+                    Enable trending movie keywords
+                  </label>
+                  <p class="settings-description">Automatically suggest popular movie keywords to block</p>
+                </div>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <span class="settings-label-text">Trending keywords update frequency</span>
+                    <select id="trending-update-frequency" class="settings-select">
+                      <option value="daily">Daily</option>
+                      <option value="weekly" selected>Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </label>
+                  <p class="settings-description">How often to refresh trending movie keywords</p>
+                </div>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <input type="checkbox" id="analytics-enabled" checked>
+                    <span class="settings-checkbox"></span>
+                    Enable analytics tracking
+                  </label>
+                  <p class="settings-description">Track which keywords are blocking the most content</p>
+                </div>
+              </div>
+
+              <!-- Save Button -->
+              <div style="text-align:center;margin-top:40px;">
+                <button id="save-settings-btn" class="settings-save-btn">
+                  Save Settings
+                </button>
+              </div>
             </div>
           `;
           break;
@@ -1168,6 +1278,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
           clearBtn.addEventListener('active', () => {
             clearBtn.style.transform = 'translateY(0) scale(0.98)';
+          });
+        }
+      } else if (feature === 'settings') {
+        loadSettings();
+        
+        // Add save settings button functionality
+        const saveBtn = featureView.querySelector('#save-settings-btn');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', async () => {
+            await saveSettings();
+            
+            // Show success feedback
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = 'Settings Saved!';
+            saveBtn.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+            
+            setTimeout(() => {
+              saveBtn.textContent = originalText;
+              saveBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #9f7aea 100%)';
+            }, 2000);
           });
         }
       }
@@ -1661,23 +1791,28 @@ async function renderAnalyticsBarGraph() {
   console.log('[SpoilWipe][Analytics] Counts type:', typeof counts);
   console.log('[SpoilWipe][Analytics] Counts keys:', Object.keys(counts));
   
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  console.log('[SpoilWipe][Analytics] Sorted entries:', entries);
+  // Filter out video-specific tracking keys (keys that contain underscores and look like video IDs)
+  const filteredEntries = Object.entries(counts).filter(([key, value]) => {
+    // Skip keys that contain underscores (video tracking keys like "videoId_keyword")
+    return !key.includes('_');
+  }).sort((a, b) => b[1] - a[1]);
   
-  if (entries.length === 0) {
+  console.log('[SpoilWipe][Analytics] Filtered entries:', filteredEntries);
+  
+  if (filteredEntries.length === 0) {
     console.log('[SpoilWipe][Analytics] No entries found, showing empty state');
     graphContainer.innerHTML = '';
     emptyState.style.display = 'block';
     return;
   }
   
-  console.log('[SpoilWipe][Analytics] Rendering bar graph with entries:', entries);
+  console.log('[SpoilWipe][Analytics] Rendering bar graph with entries:', filteredEntries);
   emptyState.style.display = 'none';
   // Find max count for scaling
-  const maxCount = Math.max(...entries.map(e => e[1]));
+  const maxCount = Math.max(...filteredEntries.map(e => e[1]));
   console.log('[SpoilWipe][Analytics] Max count for scaling:', maxCount);
   
-  graphContainer.innerHTML = entries.map(([keyword, count]) => `
+  graphContainer.innerHTML = filteredEntries.map(([keyword, count]) => `
     <div style="display:flex;align-items:center;margin-bottom:14px;">
       <span style="min-width:110px;font-weight:700;font-size:1.1rem;color:#7f9cf5;letter-spacing:0.5px;">#${keyword}</span>
       <div style="flex:1;margin:0 12px;background:rgba(127,156,245,0.12);border-radius:8px;overflow:hidden;height:24px;position:relative;">
@@ -1688,5 +1823,85 @@ async function renderAnalyticsBarGraph() {
   `).join('');
   
   console.log('[SpoilWipe][Analytics] Bar graph rendered successfully');
+}
+
+// Settings functions
+async function loadSettings() {
+  try {
+    const settings = await new Promise((resolve) => {
+      chrome.storage.sync.get(['spoilwatchSettings'], (res) => {
+        resolve(res.spoilwatchSettings || getDefaultSettings());
+      });
+    });
+    
+    // Apply settings to form elements
+    const formElements = {
+      'auto-block-enabled': settings.autoBlockEnabled,
+      'partial-match-enabled': settings.partialMatchEnabled,
+      'block-sensitivity': settings.blockSensitivity,
+      'theme-select': settings.theme,
+      'animations-enabled': settings.animationsEnabled,
+      'warning-style': settings.warningStyle,
+      'youtube-enabled': settings.youtubeEnabled,
+      'trending-keywords-enabled': settings.trendingKeywordsEnabled,
+      'trending-update-frequency': settings.trendingUpdateFrequency,
+      'analytics-enabled': settings.analyticsEnabled
+    };
+    
+    for (const [elementId, value] of Object.entries(formElements)) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        if (element.type === 'checkbox') {
+          element.checked = value;
+        } else if (element.tagName === 'SELECT') {
+          element.value = value;
+        }
+      }
+    }
+    
+    console.log('[SpoilWipe][Settings] Settings loaded:', settings);
+  } catch (error) {
+    console.error('[SpoilWipe][Settings] Error loading settings:', error);
+  }
+}
+
+async function saveSettings() {
+  try {
+    const settings = {
+      autoBlockEnabled: document.getElementById('auto-block-enabled')?.checked ?? true,
+      partialMatchEnabled: document.getElementById('partial-match-enabled')?.checked ?? true,
+      blockSensitivity: document.getElementById('block-sensitivity')?.value ?? 'normal',
+      theme: document.getElementById('theme-select')?.value ?? 'auto',
+      animationsEnabled: document.getElementById('animations-enabled')?.checked ?? true,
+      warningStyle: document.getElementById('warning-style')?.value ?? 'compact',
+      youtubeEnabled: document.getElementById('youtube-enabled')?.checked ?? true,
+      trendingKeywordsEnabled: document.getElementById('trending-keywords-enabled')?.checked ?? true,
+      trendingUpdateFrequency: document.getElementById('trending-update-frequency')?.value ?? 'weekly',
+      analyticsEnabled: document.getElementById('analytics-enabled')?.checked ?? true
+    };
+    
+    await new Promise((resolve) => {
+      chrome.storage.sync.set({ spoilwatchSettings: settings }, resolve);
+    });
+    
+    console.log('[SpoilWipe][Settings] Settings saved:', settings);
+  } catch (error) {
+    console.error('[SpoilWipe][Settings] Error saving settings:', error);
+  }
+}
+
+function getDefaultSettings() {
+  return {
+    autoBlockEnabled: true,
+    partialMatchEnabled: true,
+    blockSensitivity: 'normal',
+    theme: 'auto',
+    animationsEnabled: true,
+    warningStyle: 'compact',
+    youtubeEnabled: true,
+    trendingKeywordsEnabled: true,
+    trendingUpdateFrequency: 'weekly',
+    analyticsEnabled: true
+  };
 }
 
