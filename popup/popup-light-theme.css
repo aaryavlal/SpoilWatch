@@ -1,0 +1,367 @@
+/* Light Theme for SpoilWatch Popup */
+
+/* Light theme CSS variables for popup */
+:root {
+  --midnight-bg: #ffffff;
+  --midnight-surface: #f8fafc;
+  --midnight-card: #ffffff;
+  --midnight-border: #e2e8f0;
+  --midnight-text: #1a202c;
+  --midnight-text-secondary: #4a5568;
+  --midnight-accent: #667eea;
+  --midnight-accent-hover: #5a67d8;
+  --midnight-success: #48bb78;
+  --midnight-error: #f56565;
+  --midnight-shadow: rgba(0, 0, 0, 0.1);
+  --midnight-glow: rgba(102, 126, 234, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(0, 0, 0, 0.1);
+}
+
+/* Override background gradients for light theme */
+html, body {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%) !important;
+}
+
+body::before {
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(159, 122, 234, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(127, 156, 245, 0.04) 0%, transparent 50%);
+}
+
+/* Container light theme */
+.container {
+  background: var(--glass-bg);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--glass-border);
+}
+
+/* Header light theme */
+.header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Title light theme */
+.title {
+  background: linear-gradient(135deg, #667eea 0%, #9f7aea 50%, #7f9cf5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+/* Subtitle light theme */
+.subtitle {
+  color: #4a5568;
+}
+
+/* Input elements light theme */
+.input {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1a202c;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.input:focus {
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.input::placeholder {
+  color: #a0aec0;
+}
+
+/* Label light theme */
+.label {
+  color: #1a202c;
+}
+
+.label::before {
+  background: linear-gradient(135deg, #667eea, #9f7aea);
+}
+
+/* Save button light theme */
+.save-btn {
+  background: linear-gradient(135deg, #667eea 0%, #9f7aea 100%);
+  color: #ffffff;
+  box-shadow: 
+    0 4px 15px rgba(102, 126, 234, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.save-btn::before {
+  background: linear-gradient(135deg, #5a67d8 0%, #8b5cf6 100%);
+}
+
+.save-btn:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #8b5cf6 100%);
+  box-shadow: 
+    0 6px 20px rgba(102, 126, 234, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.save-btn:hover::before {
+  background: linear-gradient(135deg, #4c51bf 0%, #7c3aed 100%);
+}
+
+.save-btn:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 8px rgba(102, 126, 234, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.save-btn:disabled {
+  background: linear-gradient(135deg, #a0aec0 0%, #cbd5e0 100%);
+  color: #718096;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Status messages light theme */
+.status {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1a202c;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.status.success {
+  border: 1px solid rgba(72, 187, 120, 0.2);
+  background: rgba(72, 187, 120, 0.1);
+  color: #22543d;
+}
+
+.status.error {
+  border: 1px solid rgba(245, 101, 101, 0.2);
+  background: rgba(245, 101, 101, 0.1);
+  color: #742a2a;
+}
+
+.status.info {
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  background: rgba(102, 126, 234, 0.1);
+  color: #2a4365;
+}
+
+/* Keywords display light theme */
+.keywords-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.keywords-card:hover {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.keywords-header {
+  color: #1a202c;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.keywords-header::before {
+  background: linear-gradient(135deg, #667eea, #9f7aea);
+}
+
+.keyword-chip {
+  background: rgba(255, 255, 255, 0.9);
+  color: #4a5568;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.keyword-chip:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #1a202c;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.chip-remove-btn {
+  background: rgba(245, 101, 101, 0.1);
+  color: #f56565;
+  border: 1px solid rgba(245, 101, 101, 0.2);
+}
+
+.chip-remove-btn:hover {
+  background: rgba(245, 101, 101, 0.2);
+  color: #e53e3e;
+  border: 1px solid rgba(245, 101, 101, 0.3);
+}
+
+/* No keywords message light theme */
+.no-keywords {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #4a5568;
+}
+
+/* Keyword items light theme */
+.keyword-item {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1a202c;
+}
+
+.keyword-item:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.keyword-tag {
+  background: linear-gradient(135deg, #667eea 60%, #7f9cf5 100%);
+  color: #ffffff;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.remove-btn {
+  background: rgba(245, 101, 101, 0.1);
+  color: #f56565;
+  border: 1px solid rgba(245, 101, 101, 0.2);
+}
+
+.remove-btn:hover {
+  background: rgba(245, 101, 101, 0.2);
+  color: #e53e3e;
+  border: 1px solid rgba(245, 101, 101, 0.3);
+}
+
+.remove-btn:disabled {
+  background: rgba(160, 174, 192, 0.1);
+  color: #a0aec0;
+  border: 1px solid rgba(160, 174, 192, 0.2);
+  cursor: not-allowed;
+}
+
+/* Footer light theme */
+.footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.footer::before {
+  background: linear-gradient(90deg, #667eea, #9f7aea);
+}
+
+.footer-text {
+  color: #4a5568;
+}
+
+/* Fullscreen button light theme */
+.fullscreen-btn {
+  background: linear-gradient(135deg, #667eea 0%, #9f7aea 100%);
+  color: #ffffff;
+  box-shadow: 
+    0 4px 15px rgba(102, 126, 234, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.fullscreen-btn:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #8b5cf6 100%);
+  box-shadow: 
+    0 6px 20px rgba(102, 126, 234, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.fullscreen-btn:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 8px rgba(102, 126, 234, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.fullscreen-btn:disabled {
+  background: linear-gradient(135deg, #a0aec0 0%, #cbd5e0 100%);
+  color: #718096;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Scrollbar light theme */
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea, #9f7aea);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5a67d8, #8b5cf6);
+}
+
+/* Keywords chips scrollbar light theme */
+.keywords-chips::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.keywords-chips::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea, #9f7aea);
+  border-radius: 6px;
+}
+
+.keywords-chips::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5a67d8, #8b5cf6);
+}
+
+/* Focus visible light theme */
+*:focus-visible {
+  outline: 2px solid rgba(102, 126, 234, 0.5);
+  outline-offset: 2px;
+}
+
+/* Responsive adjustments for light theme */
+@media (max-width: 350px) {
+  .container {
+    padding: 20px 16px 16px 16px;
+  }
+  
+  .title {
+    font-size: 24px;
+  }
+  
+  .save-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+} 
+
+#spoilwatch-mini-popup {
+  background: var(--midnight-card, #fff);
+  color: var(--midnight-text, #1a202c);
+  border: 1.5px solid var(--midnight-border, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  padding: 14px 22px;
+  z-index: 99999;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.98;
+  pointer-events: auto;
+  transition: opacity 0.2s;
+  min-width: 160px;
+  max-width: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#spoilwatch-mini-popup .mini-popup-content {
+  color: var(--midnight-text, #1a202c);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.1px;
+} 

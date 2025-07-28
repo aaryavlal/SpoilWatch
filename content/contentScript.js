@@ -1283,6 +1283,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } else if (feature === 'settings') {
         loadSettings();
         
+        // Add theme change listener for real-time preview
+        const themeSelect = featureView.querySelector('#theme-select');
+        if (themeSelect) {
+          themeSelect.addEventListener('change', () => {
+            const selectedTheme = themeSelect.value;
+            applyTheme(selectedTheme);
+            console.log('[SpoilWipe][Theme] Theme preview applied:', selectedTheme);
+          });
+        }
+        
         // Add save settings button functionality
         const saveBtn = featureView.querySelector('#save-settings-btn');
         if (saveBtn) {
@@ -1587,6 +1597,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       link.href = chrome.runtime.getURL('popup/fullscreen.css');
       document.head.appendChild(link);
     }
+    
+    // Apply current theme to the overlay
+    chrome.storage.sync.get(['spoilwatchSettings'], (res) => {
+      const settings = res.spoilwatchSettings || getDefaultSettings();
+      applyTheme(settings.theme);
+    });
     // Close logic
     const closeBtn = document.getElementById('spoilwatch-close-fullscreen-btn');
     if (closeBtn) {
@@ -1645,6 +1661,22 @@ if (window.location.hostname.includes('youtube.com') || window.location.hostname
   } else {
     initializeSpoilWatch();
   }
+  
+  // Set up system theme change listener for auto theme
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  mediaQuery.addEventListener('change', async () => {
+    // Get current settings to check if theme is set to auto
+    const settings = await new Promise((resolve) => {
+      chrome.storage.sync.get(['spoilwatchSettings'], (res) => {
+        resolve(res.spoilwatchSettings || getDefaultSettings());
+      });
+    });
+    
+    if (settings.theme === 'auto') {
+      applyTheme('auto');
+      console.log('[SpoilWipe][Theme] System theme changed, auto theme updated');
+    }
+  });
 }
 
 // Shorts video detection integration
@@ -1825,6 +1857,46 @@ async function renderAnalyticsBarGraph() {
   console.log('[SpoilWipe][Analytics] Bar graph rendered successfully');
 }
 
+// Theme management functions
+function applyTheme(theme) {
+  console.log('[SpoilWipe][Theme] Applying theme:', theme);
+  
+  // Remove existing theme stylesheets
+  const existingLightTheme = document.getElementById('spoilwatch-light-theme');
+  if (existingLightTheme) {
+    existingLightTheme.remove();
+  }
+  
+  if (theme === 'light') {
+    // Add light theme stylesheet
+    const lightThemeLink = document.createElement('link');
+    lightThemeLink.id = 'spoilwatch-light-theme';
+    lightThemeLink.rel = 'stylesheet';
+    lightThemeLink.type = 'text/css';
+    lightThemeLink.href = chrome.runtime.getURL('popup/light-theme.css');
+    document.head.appendChild(lightThemeLink);
+    console.log('[SpoilWipe][Theme] Light theme applied');
+  } else if (theme === 'auto') {
+    // Check system preference
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (!prefersDark) {
+      // Apply light theme if system prefers light
+      const lightThemeLink = document.createElement('link');
+      lightThemeLink.id = 'spoilwatch-light-theme';
+      lightThemeLink.rel = 'stylesheet';
+      lightThemeLink.type = 'text/css';
+      lightThemeLink.href = chrome.runtime.getURL('popup/light-theme.css');
+      document.head.appendChild(lightThemeLink);
+      console.log('[SpoilWipe][Theme] Auto theme: system prefers light, applied light theme');
+    } else {
+      console.log('[SpoilWipe][Theme] Auto theme: system prefers dark, using default dark theme');
+    }
+  } else {
+    // Dark theme (default) - no additional stylesheet needed
+    console.log('[SpoilWipe][Theme] Dark theme applied (default)');
+  }
+}
+
 // Settings functions
 async function loadSettings() {
   try {
@@ -1859,6 +1931,9 @@ async function loadSettings() {
       }
     }
     
+    // Apply theme immediately when settings are loaded
+    applyTheme(settings.theme);
+    
     console.log('[SpoilWipe][Settings] Settings loaded:', settings);
   } catch (error) {
     console.error('[SpoilWipe][Settings] Error loading settings:', error);
@@ -1883,6 +1958,9 @@ async function saveSettings() {
     await new Promise((resolve) => {
       chrome.storage.sync.set({ spoilwatchSettings: settings }, resolve);
     });
+    
+    // Apply theme immediately when settings are saved
+    applyTheme(settings.theme);
     
     console.log('[SpoilWipe][Settings] Settings saved:', settings);
   } catch (error) {

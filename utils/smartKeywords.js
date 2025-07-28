@@ -22,10 +22,10 @@ export async function getSmartSpoilerKeywords(limit = 5) {
       const res = await fetch(url);
       const data = await res.json();
 
-      console.log(`📦 Response for "${title}":`, data);
+      console.log(`Response for "${title}":`, data);
 
       if (data.Response === 'False') {
-        console.warn(`❌ OMDb could not find "${title}": ${data.Error}`);
+        console.warn(`OMDb could not find "${title}": ${data.Error}`);
         continue;
       }
 
@@ -40,10 +40,10 @@ export async function getSmartSpoilerKeywords(limit = 5) {
       const hashtagList = [...keywords].slice(0, 10);
       results[data.Title] = hashtagList;
 
-      console.log(`✅ Hashtags for "${data.Title}":`, hashtagList);
+      console.log(`Hashtags for "${data.Title}":`, hashtagList);
 
     } catch (err) {
-      console.error(`💥 Error fetching "${title}":`, err);
+      console.error(`Error fetching "${title}":`, err);
     }
   }
 

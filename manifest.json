@@ -29,7 +29,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["popup/fullscreen.css"],
+      "resources": ["popup/fullscreen.css", "popup/light-theme.css", "popup/popup-light-theme.css"],
       "matches": [
         "https://www.youtube.com/*",
         "https://youtu.be/*"
