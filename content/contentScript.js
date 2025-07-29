@@ -1056,6 +1056,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'keyword-history':
           featureTitle = 'Keyword History';
           featureContent = `
+            <div style="display:flex;justify-content:center;align-items:center;width:100%;margin-top:0;margin-bottom:0;">
+              <button id="spoilwatch-clear-history-btn" class="spoilwatch-clear-btn" style="margin: 0 0 0 0; padding: 10px 22px; background: linear-gradient(135deg, #f56565 0%, #ed64a6 100%); color: #fff; border: none; border-radius: 20px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(245,101,101,0.15);">Clear All History</button>
+            </div>
             <div id="spoilwatch-history-list" style="display:flex;flex-wrap:wrap;gap:18px;justify-content:center;align-items:flex-start;width:100%;margin-top:20px;margin-bottom:0;"></div>
             <div id="spoilwatch-history-empty" class="empty-state" style="display:none;">
               <div style="font-size:3rem;margin-bottom:16px;opacity:0.6;">📝</div>
@@ -1537,8 +1540,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       async function renderKeywordHistory() {
         const historyList = document.getElementById('spoilwatch-history-list');
         const emptyMsg = document.getElementById('spoilwatch-history-empty');
+        const clearBtn = document.getElementById('spoilwatch-clear-history-btn');
         if (!historyList || !emptyMsg) return;
-        
+        // Attach clear all handler
+        if (clearBtn) {
+          clearBtn.onclick = async () => {
+            if (confirm('Are you sure you want to clear all keyword history? This cannot be undone.')) {
+              await new Promise(res => chrome.storage.sync.set({ keywordHistory: [] }, res));
+              renderKeywordHistory();
+            }
+          };
+        }
         historyList.innerHTML = '';
         const [history, blocked] = await Promise.all([
           getKeywordHistory(),
@@ -1649,6 +1661,205 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     overlay.focus();
     return;
   }
+  // ... existing code ...
+  if (message && message.action === 'show_left_popup' && message.keyword) {
+    // Remove any existing left popup
+    const existing = document.getElementById('spoilwatch-left-popup');
+    if (existing) existing.remove();
+
+    // Create style tag for popup
+    const style = document.createElement('style');
+    style.textContent = `
+      #spoilwatch-left-popup {
+        position: fixed;
+        top: 32px;
+        right: 520px;
+        min-width: 260px;
+        max-width: 320px;
+        background: var(--glass-bg, rgba(26,34,54,0.8));
+        border-radius: 18px;
+        box-shadow: 0 8px 32px 0 rgba(16,22,36,0.18), 0 1.5px 8px 0 rgba(30,34,50,0.10);
+        border: 1.5px solid var(--midnight-border, #2d3750);
+        z-index: 2147483647;
+        opacity: 0.99;
+        pointer-events: auto;
+        text-align: center;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+        animation: spoilwatch-fadein 0.3s;
+        color: var(--midnight-text, #e2e8f0);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+      }
+      @keyframes spoilwatch-fadein {
+        from { opacity: 0; transform: translateY(-16px);}
+        to { opacity: 0.99; transform: none;}
+      }
+      #spoilwatch-left-popup-header {
+        padding: 18px 24px 8px 24px;
+        border-radius: 18px 18px 0 0;
+        background: none;
+        color: var(--midnight-text, #e2e8f0);
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        margin-bottom: 0;
+        border-bottom: 1px solid var(--midnight-border, #2d3750);
+      }
+      #spoilwatch-left-popup-keyword {
+        margin: 0 0 8px 0;
+        padding: 10px 24px 0 24px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--midnight-text, #e2e8f0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+      }
+      #spoilwatch-left-popup-keyword-badge {
+        background: var(--midnight-surface, #1a2236);
+        color: var(--midnight-text, #e2e8f0);
+        border-radius: 8px;
+        padding: 3px 10px;
+        font-size: 14px;
+        font-weight: 700;
+        margin-left: 4px;
+        box-shadow: 0 1px 4px rgba(16,22,36,0.08);
+        border: 1px solid var(--midnight-border, #2d3750);
+      }
+      #spoilwatch-recommended-loading {
+        color: var(--midnight-accent, #667eea);
+        font-size: 13px;
+        padding: 8px 0;
+      }
+      #spoilwatch-recommended-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 8px;
+        padding: 10px 18px 18px 18px;
+        justify-content: center;
+      }
+      .spoilwatch-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 20px;
+        padding: 8px 16px 8px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        background: linear-gradient(135deg, rgba(35,43,65,0.8) 0%, rgba(45,55,80,0.6) 100%);
+        color: var(--midnight-text, #e2e8f0);
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15),inset 0 1px 0 rgba(255,255,255,0.1);
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+        user-select: none;
+        position: relative;
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+      }
+      .spoilwatch-chip:hover:not(.spoilwatch-chip-added) {
+        background: linear-gradient(135deg, rgba(102,126,234,0.8) 0%, rgba(127,156,245,0.6) 100%);
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(102,126,234,0.25),inset 0 1px 0 rgba(255,255,255,0.2);
+        transform: translateY(-2px) scale(1.05);
+      }
+      .spoilwatch-chip-added {
+        background: linear-gradient(135deg, #667eea 0%, #7f9cf5 100%);
+        color: #fff;
+        border: 1.5px solid #667eea;
+        cursor: default;
+      }
+      #spoilwatch-left-popup-close {
+        position: absolute;
+        top: 11px;
+        right: 14px;
+        background: none;
+        border: none;
+        color: var(--midnight-text-secondary, #a0aec0);
+        font-size: 20px;
+        font-weight: 900;
+        line-height: 1;
+        cursor: pointer;
+        opacity: 0.6;
+        z-index: 2;
+        border-radius: 6px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s, opacity 0.2s;
+      }
+      #spoilwatch-left-popup-close:hover {
+        background: rgba(102,126,234,0.13);
+        opacity: 1;
+      }
+    `;
+
+    // Create the left popup
+    const leftPopup = document.createElement('div');
+    leftPopup.id = 'spoilwatch-left-popup';
+    leftPopup.innerHTML = `
+      <button id="spoilwatch-left-popup-close">&times;</button>
+      <div id="spoilwatch-left-popup-header">Recommended Keywords</div>
+      <div id="spoilwatch-left-popup-keyword">Keyword: <span id="spoilwatch-left-popup-keyword-badge">${message.keyword}</span></div>
+      <div id="spoilwatch-recommended-loading">Loading recommendations...</div>
+      <div id="spoilwatch-recommended-list" style="display:none;"></div>
+    `;
+    leftPopup.appendChild(style);
+    document.body.appendChild(leftPopup);
+
+    // Add close button handler
+    const closeBtn = document.getElementById('spoilwatch-left-popup-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        leftPopup.remove();
+      });
+    }
+
+    // Fetch and display recommended keywords (inline)
+    fetchRecommendedKeywordsInline(message.keyword).then(recommended => {
+      getBlockedKeywords().then(blockedKeywords => {
+        const loading = document.getElementById('spoilwatch-recommended-loading');
+        const list = document.getElementById('spoilwatch-recommended-list');
+        if (loading) loading.style.display = 'none';
+        if (list) {
+          list.style.display = 'flex';
+          list.innerHTML = '';
+          if (recommended.length === 0) {
+            list.innerHTML = '<span style="color:#ccc;font-size:13px;">No recommendations found.</span>';
+          } else {
+            recommended.forEach(kw => {
+              const isBlocked = blockedKeywords.includes(kw);
+              const chip = document.createElement('span');
+              chip.className = 'spoilwatch-chip' + (isBlocked ? ' spoilwatch-chip-added' : '');
+              chip.textContent = kw;
+              if (!isBlocked) {
+                chip.addEventListener('click', async () => {
+                  chip.textContent = 'Adding...';
+                  chip.style.pointerEvents = 'none';
+                  const current = await getBlockedKeywords();
+                  if (!current.includes(kw)) {
+                    const updated = [...current, kw];
+                    chrome.storage.sync.set({ blocked: updated }, () => {
+                      chip.textContent = kw;
+                      chip.classList.add('spoilwatch-chip-added');
+                    });
+                  }
+                });
+              }
+              list.appendChild(chip);
+            });
+          }
+        }
+      });
+    });
+  }
+  // ... existing code ...
 });
 
 // Check if on YouTube
@@ -1981,5 +2192,33 @@ function getDefaultSettings() {
     trendingUpdateFrequency: 'weekly',
     analyticsEnabled: true
   };
+}
+
+// Remove the left popup and mini popup when the main popup closes (extension popup closes)
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden') {
+    const leftPopup = document.getElementById('spoilwatch-left-popup');
+    if (leftPopup) leftPopup.remove();
+    const miniPopup = document.getElementById('spoilwatch-mini-popup');
+    if (miniPopup) miniPopup.remove();
+  }
+});
+
+// Inlined fetchRecommendedKeywords from utils/recommendedKeywords.js
+async function fetchRecommendedKeywordsInline(userInput) {
+  if (!userInput || userInput.length < 3) return [];
+  try {
+    const res = await fetch(`https://api.datamuse.com/words?ml=${encodeURIComponent(userInput)}&max=12`);
+    const data = await res.json();
+    const COMMON_WORDS = ['the', 'and', 'of', 'in', 'on', 'to', 'a', 'is', 'as', 'by'];
+    const keywords = data
+      .map(entry => entry.word.toLowerCase())
+      .filter(word => word.length >= 4 && !COMMON_WORDS.includes(word))
+      .map(word => `#${word}`);
+    return keywords;
+  } catch (err) {
+    console.error('Error fetching general recommended keywords:', err);
+    return [];
+  }
 }
 

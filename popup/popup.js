@@ -234,6 +234,12 @@ async function saveKeywords() {
         // Reset flag so next time user enters a keyword, mini popup can show again
         chrome.storage.local.set({ spoilwatchMiniPopupDismissed: false });
       });
+      // Send message to content script to show left popup in page
+      chrome.tabs && chrome.tabs.query && chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        if (tabs && tabs[0] && tabs[0].id) {
+          chrome.tabs.sendMessage(tabs[0].id, { action: 'show_left_popup', keyword: newKeywords[0] });
+        }
+      });
     }
     
   } catch (error) {
