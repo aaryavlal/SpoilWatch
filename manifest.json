@@ -3,7 +3,7 @@
   "name": "SpoilWipe",
   "version": "1.0",
   "description": "Blocks spoiler videos from websites like TikTok or YouTube.",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "scripting", "activeTab"],
   "host_permissions": [
     "https://www.youtube.com/*",
     "https://youtu.be/*",
