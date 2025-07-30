@@ -226,7 +226,7 @@ function shouldBlockElement(element, blockedKeywords) {
   return shouldBlock(hashtags, blockedKeywords);
 }
 
-function applyBlocking(element, blockedKeywords) {
+async function applyBlocking(element, blockedKeywords) {
   if (shouldBlockElement(element, blockedKeywords)) {
     console.log('SpoilWipe: Blocking element with hashtags:', element);
     
@@ -258,17 +258,33 @@ currentBlockedVideoElement = videoElement;
     // Mark this as the main video block
     videoElement.setAttribute('data-spoilwatch-video-blocked', 'true');
     
+    // Check if parental controls are active
+    const parentalControlsActive = await isParentalControlsActive();
+    
     // Add a compact, calm warning overlay to the video element
     const overlay = document.createElement('div');
     overlay.className = 'spoilwatch-overlay';
-    overlay.innerHTML = `
-      <div class="spoilwatch-warning" style="background: rgba(30,34,50,0.82); border-radius: 12px; box-shadow: 0 2px 12px rgba(16,22,36,0.10); padding: 16px 18px 12px 18px; display: flex; flex-direction: column; align-items: center; min-width: 120px; max-width: 220px;">
-        <div style="font-size: 20px; margin-bottom: 2px;">⚠️</div>
-        <div class="spoilwatch-title" style="font-size: 15px; font-weight: 700; color: #fff; text-shadow: 0 1px 4px #000, 0 0 6px #7f9cf5; letter-spacing: 0.5px; margin-bottom: 2px;">SPOILER WARNING</div>
-        <div class="spoilwatch-text" style="font-size: 11px; color: #fff; font-weight: 500; opacity: 0.98; margin-bottom: 7px; text-shadow: 0 1px 4px #000, 0 0 6px #7f9cf5;">This video contains spoiler content</div>
-        <button class="spoilwatch-watch-btn" style="background: none; border: 1.5px solid #f56565; border-radius: 6px; padding: 3px 14px; color: #f56565; font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s; box-shadow: none;">Watch Anyway</button>
-      </div>
-    `;
+    
+    if (parentalControlsActive) {
+      // Parental controls active - show restricted message without Watch Anyway button
+      overlay.innerHTML = `
+        <div class="spoilwatch-warning" style="background: rgba(30,34,50,0.82); border-radius: 12px; box-shadow: 0 2px 12px rgba(16,22,36,0.10); padding: 16px 18px 12px 18px; display: flex; flex-direction: column; align-items: center; min-width: 120px; max-width: 220px;">
+          <div style="font-size: 20px; margin-bottom: 2px;">🔒</div>
+          <div class="spoilwatch-title" style="font-size: 15px; font-weight: 700; color: #fff; text-shadow: 0 1px 4px #000, 0 0 6px #7f9cf5; letter-spacing: 0.5px; margin-bottom: 2px;">PARENTAL CONTROLS</div>
+          <div class="spoilwatch-text" style="font-size: 11px; color: #fff; font-weight: 500; opacity: 0.98; margin-bottom: 7px; text-shadow: 0 1px 4px #000, 0 0 6px #7f9cf5;">This video is blocked due to parental settings</div>
+        </div>
+      `;
+    } else {
+      // No parental controls - show normal spoiler warning with Watch Anyway button
+      overlay.innerHTML = `
+        <div class="spoilwatch-warning" style="background: rgba(30,34,50,0.82); border-radius: 12px; box-shadow: 0 2px 12px rgba(16,22,36,0.10); padding: 16px 18px 12px 18px; display: flex; flex-direction: column; align-items: center; min-width: 120px; max-width: 220px;">
+          <div style="font-size: 20px; margin-bottom: 2px;">⚠️</div>
+          <div class="spoilwatch-title" style="font-size: 15px; font-weight: 700; color: #fff; text-shadow: 0 1px 4px #000, 0 0 6px #7f9cf5; letter-spacing: 0.5px; margin-bottom: 2px;">SPOILER WARNING</div>
+          <div class="spoilwatch-text" style="font-size: 11px; color: #fff; font-weight: 500; opacity: 0.98; margin-bottom: 7px; text-shadow: 0 1px 4px #000, 0 0 6px #7f9cf5;">This video contains spoiler content</div>
+          <button class="spoilwatch-watch-btn" style="background: none; border: 1.5px solid #f56565; border-radius: 6px; padding: 3px 14px; color: #f56565; font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s; box-shadow: none;">Watch Anyway</button>
+        </div>
+      `;
+    }
     overlay.style.cssText = `
       position: absolute;
       top: 18%;
@@ -285,25 +301,27 @@ currentBlockedVideoElement = videoElement;
       box-shadow: none;
       pointer-events: auto;
     `;
-    // Add event listener to the Watch Anyway button
-    const watchBtn = overlay.querySelector('.spoilwatch-watch-btn');
-    watchBtn.addEventListener('mouseenter', function() {
-      watchBtn.style.background = 'rgba(245,101,101,0.12)';
-      watchBtn.style.color = '#fff';
-    });
-    watchBtn.addEventListener('mouseleave', function() {
-      watchBtn.style.background = 'none';
-      watchBtn.style.color = '#f56565';
-    });
-    watchBtn.addEventListener('click', function() {
-      overlay.remove();
-      videoElement.style.filter = 'none';
-      videoElement.removeAttribute('data-spoilwatch-video-blocked');
-      hasCheckedCurrentVideo = true;
-      if (typeof videoElement.play === 'function') {
-        videoElement.play();
-      }
-    });
+    // Add event listener to the Watch Anyway button (only if parental controls are not active)
+    if (!parentalControlsActive) {
+      const watchBtn = overlay.querySelector('.spoilwatch-watch-btn');
+      watchBtn.addEventListener('mouseenter', function() {
+        watchBtn.style.background = 'rgba(245,101,101,0.12)';
+        watchBtn.style.color = '#fff';
+      });
+      watchBtn.addEventListener('mouseleave', function() {
+        watchBtn.style.background = 'none';
+        watchBtn.style.color = '#f56565';
+      });
+      watchBtn.addEventListener('click', function() {
+        overlay.remove();
+        videoElement.style.filter = 'none';
+        videoElement.removeAttribute('data-spoilwatch-video-blocked');
+        hasCheckedCurrentVideo = true;
+        if (typeof videoElement.play === 'function') {
+          videoElement.play();
+        }
+      });
+    }
     videoElement.appendChild(overlay);
     // Pause the video when a spoiler is detected
     if (typeof videoElement.pause === 'function') {
@@ -685,7 +703,7 @@ function checkYouTubeShorts(retryCount = 0) {
 
 
 // Helper function to block the video
-function blockVideo(blockingHashtags) {
+async function blockVideo(blockingHashtags) {
   
   // Find the main video element using our helper function
   const videoElement = findVideoElement();
@@ -719,20 +737,37 @@ function blockVideo(blockingHashtags) {
   // Mark this as the main video block
   videoElement.setAttribute('data-spoilwatch-video-blocked', 'true');
   
+  // Check if parental controls are active
+  const parentalControlsActive = await isParentalControlsActive();
+  
   // Add a warning overlay
   const overlay = document.createElement('div');
   overlay.className = 'spoilwatch-overlay';
-  overlay.innerHTML = `
-    <div class="spoilwatch-warning">
-      <div class="spoilwatch-icon">⚠️</div>
-      <div class="spoilwatch-title">SPOILER WARNING</div>
-      <div class="spoilwatch-text">This video contains spoiler content</div>
-      <div class="spoilwatch-hashtags">Blocked: ${blockingHashtags.slice(0, 3).join(', ')}${blockingHashtags.length > 3 ? '...' : ''}</div>
-      <button class="spoilwatch-watch-btn">
-        Watch Anyway
-      </button>
-    </div>
-  `;
+  
+  if (parentalControlsActive) {
+    // Parental controls active - show restricted message without Watch Anyway button
+    overlay.innerHTML = `
+      <div class="spoilwatch-warning">
+        <div class="spoilwatch-icon">🔒</div>
+        <div class="spoilwatch-title">PARENTAL CONTROLS</div>
+        <div class="spoilwatch-text">This video is blocked due to parental settings</div>
+        <div class="spoilwatch-hashtags">Blocked: ${blockingHashtags.slice(0, 3).join(', ')}${blockingHashtags.length > 3 ? '...' : ''}</div>
+      </div>
+    `;
+  } else {
+    // No parental controls - show normal spoiler warning with Watch Anyway button
+    overlay.innerHTML = `
+      <div class="spoilwatch-warning">
+        <div class="spoilwatch-icon">⚠️</div>
+        <div class="spoilwatch-title">SPOILER WARNING</div>
+        <div class="spoilwatch-text">This video contains spoiler content</div>
+        <div class="spoilwatch-hashtags">Blocked: ${blockingHashtags.slice(0, 3).join(', ')}${blockingHashtags.length > 3 ? '...' : ''}</div>
+        <button class="spoilwatch-watch-btn">
+          Watch Anyway
+        </button>
+      </div>
+    `;
+  }
   overlay.style.cssText = `
     position: absolute;
     top: 50%;
@@ -752,26 +787,28 @@ function blockVideo(blockingHashtags) {
     pointer-events: auto;
   `;
   
-  // Add event listener to the Watch Anyway button
-  const watchBtn = overlay.querySelector('.spoilwatch-watch-btn');
-  watchBtn.addEventListener('click', function() {
-    console.log('SpoilWipe: User clicked Watch Anyway button');
-    
-    // Remove the overlay
-    overlay.remove();
-    
-    // Remove blur from video
-    videoElement.style.filter = 'none';
-    
-    // Remove the blocked attribute
-    videoElement.removeAttribute('data-spoilwatch-video-blocked');
-    videoElement.removeAttribute('data-spoilwatch-blocked-id'); // Clear unique attribute
-    
-    // Mark as checked so it doesn't re-block
-    hasCheckedCurrentVideo = true;
-    
-    console.log('SpoilWipe: Video unblocked by user');
-  });
+  // Add event listener to the Watch Anyway button (only if parental controls are not active)
+  if (!parentalControlsActive) {
+    const watchBtn = overlay.querySelector('.spoilwatch-watch-btn');
+    watchBtn.addEventListener('click', function() {
+      console.log('SpoilWipe: User clicked Watch Anyway button');
+      
+      // Remove the overlay
+      overlay.remove();
+      
+      // Remove blur from video
+      videoElement.style.filter = 'none';
+      
+      // Remove the blocked attribute
+      videoElement.removeAttribute('data-spoilwatch-video-blocked');
+      videoElement.removeAttribute('data-spoilwatch-blocked-id'); // Clear unique attribute
+      
+      // Mark as checked so it doesn't re-block
+      hasCheckedCurrentVideo = true;
+      
+      console.log('SpoilWipe: Video unblocked by user');
+    });
+  }
   
   videoElement.appendChild(overlay);
   
@@ -1101,6 +1138,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   </label>
                   <p class="settings-description">How strictly to match keywords when blocking content</p>
                 </div>
+                <div class="settings-option">
+                  <label class="settings-label">
+                    <input type="checkbox" id="parental-controls-enabled">
+                    <span class="settings-checkbox"></span>
+                    Enable parental controls
+                  </label>
+                  <p class="settings-description">Require password to modify blocked keywords or disable spoiler protection</p>
+                </div>
               </div>
 
               <!-- Theme and Personalization -->
@@ -1296,6 +1341,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
         }
         
+        // Add parental controls checkbox functionality
+        const parentalControlsCheckbox = featureView.querySelector('#parental-controls-enabled');
+        if (parentalControlsCheckbox) {
+          parentalControlsCheckbox.addEventListener('change', async (e) => {
+            if (e.target.checked) {
+              // Show PIN popup when parental controls are enabled
+              showParentalControlsPinPopup();
+            } else {
+              // Show PIN verification popup when trying to disable parental controls
+              showParentalControlsPinVerificationPopup();
+            }
+          });
+        }
+
         // Add save settings button functionality
         const saveBtn = featureView.querySelector('#save-settings-btn');
         if (saveBtn) {
@@ -1388,29 +1447,60 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               return; // Already blocked
             }
             
-            // Add to blocked keywords
-            const newBlockedKeywords = [...blockedKeywords, cleanTag];
-            await new Promise(resolve => {
-              chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
-            });
+            // Check if parental controls are active
+            const parentalControlsActive = await isParentalControlsActive();
+            if (parentalControlsActive) {
+              // Show PIN verification popup for adding keywords
+              showKeywordOperationPinPopup('Add', async () => {
+                // PIN verified - proceed with adding keyword
+                const newBlockedKeywords = [...blockedKeywords, cleanTag];
+                await new Promise(resolve => {
+                  chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
+                });
 
-            // Also add to keywordHistory if not present
-            const keywordHistory = await getKeywordHistory();
-            if (!keywordHistory.includes(cleanTag)) {
-              const newHistory = [...keywordHistory, cleanTag];
-              await new Promise(resolve => {
-                chrome.storage.sync.set({keywordHistory: newHistory}, resolve);
+                // Also add to keywordHistory if not present
+                const keywordHistory = await getKeywordHistory();
+                if (!keywordHistory.includes(cleanTag)) {
+                  const newHistory = [...keywordHistory, cleanTag];
+                  await new Promise(resolve => {
+                    chrome.storage.sync.set({keywordHistory: newHistory}, resolve);
+                  });
+                }
+                
+                // Update chip appearance
+                chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
+                chip.style.color = '#fff';
+                chip.style.opacity = '0.85';
+                chip.title = 'Already blocked';
+                chip.style.cursor = 'not-allowed';
+                
+                console.log(`Added "${cleanTag}" to blocked keywords and keyword history (with PIN verification)`);
               });
+            } else {
+              // No parental controls - add directly
+              const newBlockedKeywords = [...blockedKeywords, cleanTag];
+              await new Promise(resolve => {
+                chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
+              });
+
+              // Also add to keywordHistory if not present
+              const keywordHistory = await getKeywordHistory();
+              if (!keywordHistory.includes(cleanTag)) {
+                const newHistory = [...keywordHistory, cleanTag];
+                await new Promise(resolve => {
+                  chrome.storage.sync.set({keywordHistory: newHistory}, resolve);
+                });
+              }
+              
+              // Update chip appearance
+              chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
+              chip.style.color = '#fff';
+              chip.style.opacity = '0.85';
+              chip.title = 'Already blocked';
+              chip.style.cursor = 'not-allowed';
+              
+              console.log(`Added "${cleanTag}" to blocked keywords and keyword history`);
             }
-            
-            // Update chip appearance
-            chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
-            chip.style.color = '#fff';
-            chip.style.opacity = '0.85';
-            chip.title = 'Already blocked';
-            chip.style.cursor = 'not-allowed';
-            
-            console.log(`Added "${cleanTag}" to blocked keywords and keyword history`);
           });
           
           hashtagContainer.appendChild(chip);
@@ -1455,29 +1545,60 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 return; // Already blocked
               }
               
-              // Add to blocked keywords
-              const newBlockedKeywords = [...blockedKeywords, cleanTag];
-              await new Promise(resolve => {
-                chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
-              });
+              // Check if parental controls are active
+              const parentalControlsActive = await isParentalControlsActive();
+              if (parentalControlsActive) {
+                // Show PIN verification popup for adding keywords
+                showKeywordOperationPinPopup('Add', async () => {
+                  // PIN verified - proceed with adding keyword
+                  const newBlockedKeywords = [...blockedKeywords, cleanTag];
+                  await new Promise(resolve => {
+                    chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
+                  });
 
-              // Also add to keywordHistory if not present
-              const keywordHistory = await getKeywordHistory();
-              if (!keywordHistory.includes(cleanTag)) {
-                const newHistory = [...keywordHistory, cleanTag];
-                await new Promise(resolve => {
-                  chrome.storage.sync.set({keywordHistory: newHistory}, resolve);
+                  // Also add to keywordHistory if not present
+                  const keywordHistory = await getKeywordHistory();
+                  if (!keywordHistory.includes(cleanTag)) {
+                    const newHistory = [...keywordHistory, cleanTag];
+                    await new Promise(resolve => {
+                      chrome.storage.sync.set({keywordHistory: newHistory}, resolve);
+                    });
+                  }
+                  
+                  // Update chip appearance
+                  chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
+                  chip.style.color = '#fff';
+                  chip.style.opacity = '0.85';
+                  chip.title = 'Already blocked';
+                  chip.style.cursor = 'not-allowed';
+                  
+                  console.log(`Added "${cleanTag}" to blocked keywords and keyword history (with PIN verification)`);
                 });
+              } else {
+                // No parental controls - add directly
+                const newBlockedKeywords = [...blockedKeywords, cleanTag];
+                await new Promise(resolve => {
+                  chrome.storage.sync.set({blocked: newBlockedKeywords}, resolve);
+                });
+
+                // Also add to keywordHistory if not present
+                const keywordHistory = await getKeywordHistory();
+                if (!keywordHistory.includes(cleanTag)) {
+                  const newHistory = [...keywordHistory, cleanTag];
+                  await new Promise(resolve => {
+                    chrome.storage.sync.set({keywordHistory: newHistory}, resolve);
+                  });
+                }
+                
+                // Update chip appearance
+                chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
+                chip.style.color = '#fff';
+                chip.style.opacity = '0.85';
+                chip.title = 'Already blocked';
+                chip.style.cursor = 'not-allowed';
+                
+                console.log(`Added "${cleanTag}" to blocked keywords and keyword history`);
               }
-              
-              // Update chip appearance
-              chip.style.background = 'linear-gradient(135deg, #667eea 60%, #7f9cf5 100%)';
-              chip.style.color = '#fff';
-              chip.style.opacity = '0.85';
-              chip.title = 'Already blocked';
-              chip.style.cursor = 'not-allowed';
-              
-              console.log(`Added "${cleanTag}" to blocked keywords and keyword history`);
             });
             
             hiddenContainer.appendChild(chip);
@@ -1546,8 +1667,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (clearBtn) {
           clearBtn.onclick = async () => {
             if (confirm('Are you sure you want to clear all keyword history? This cannot be undone.')) {
-              await new Promise(res => chrome.storage.sync.set({ keywordHistory: [] }, res));
-              renderKeywordHistory();
+              // Check if parental controls are active
+              const parentalControlsActive = await isParentalControlsActive();
+              if (parentalControlsActive) {
+                // Show PIN verification popup for clearing history
+                showKeywordOperationPinPopup('Clear', async () => {
+                  // PIN verified - proceed with clearing history
+                  await new Promise(res => chrome.storage.sync.set({ keywordHistory: [] }, res));
+                  renderKeywordHistory();
+                });
+              } else {
+                // No parental controls - clear directly
+                await new Promise(res => chrome.storage.sync.set({ keywordHistory: [] }, res));
+                renderKeywordHistory();
+              }
             }
           };
         }
@@ -1578,20 +1711,51 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const xBtn = chip.querySelector('.chip-x');
           xBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            // Remove from blocked if present
-            const newBlocked = (await getBlockedKeywords()).filter(k => k !== keyword);
-            await new Promise(res => chrome.storage.sync.set({blocked: newBlocked}, res));
-            // Do NOT remove from keywordHistory, only from blocked
-            // Re-render
-            renderKeywordHistory();
+            
+            // Check if parental controls are active
+            const parentalControlsActive = await isParentalControlsActive();
+            if (parentalControlsActive) {
+              // Show PIN verification popup for removing keywords
+              showKeywordOperationPinPopup('Remove', async () => {
+                // PIN verified - proceed with removing keyword
+                const newBlocked = (await getBlockedKeywords()).filter(k => k !== keyword);
+                await new Promise(res => chrome.storage.sync.set({blocked: newBlocked}, res));
+                // Do NOT remove from keywordHistory, only from blocked
+                // Re-render
+                renderKeywordHistory();
+              });
+            } else {
+              // No parental controls - remove directly
+              const newBlocked = (await getBlockedKeywords()).filter(k => k !== keyword);
+              await new Promise(res => chrome.storage.sync.set({blocked: newBlocked}, res));
+              // Do NOT remove from keywordHistory, only from blocked
+              // Re-render
+              renderKeywordHistory();
+            }
           });
           chip.addEventListener('click', async () => {
             if (blocked.includes(keyword)) return;
-            const newBlocked = [...blocked, keyword];
-            await setBlockedKeywords(newBlocked);
-            chip.disabled = true;
-            chip.classList.add('added');
-            chip.title = 'Already blocked';
+            
+            // Check if parental controls are active
+            const parentalControlsActive = await isParentalControlsActive();
+            if (parentalControlsActive) {
+              // Show PIN verification popup for adding keywords
+              showKeywordOperationPinPopup('Add', async () => {
+                // PIN verified - proceed with adding keyword
+                const newBlocked = [...blocked, keyword];
+                await setBlockedKeywords(newBlocked);
+                chip.disabled = true;
+                chip.classList.add('added');
+                chip.title = 'Already blocked';
+              });
+            } else {
+              // No parental controls - add directly
+              const newBlocked = [...blocked, keyword];
+              await setBlockedKeywords(newBlocked);
+              chip.disabled = true;
+              chip.classList.add('added');
+              chip.title = 'Already blocked';
+            }
           });
           historyList.appendChild(chip);
         });
@@ -2112,23 +2276,48 @@ function applyTheme(theme) {
 async function loadSettings() {
   try {
     const settings = await new Promise((resolve) => {
-      chrome.storage.sync.get(['spoilwatchSettings'], (res) => {
-        resolve(res.spoilwatchSettings || getDefaultSettings());
+      chrome.storage.sync.get(['spoilwatchSettings', 'parentalControlsPin'], (res) => {
+        const pin = res.parentalControlsPin || null;
+        console.log('[SpoilWipe][ParentalControls] Loading from storage:', {
+          parentalControlsPin: pin,
+          settings: res.spoilwatchSettings
+        });
+        resolve({
+          settings: res.spoilwatchSettings || getDefaultSettings(),
+          pin: pin
+        });
       });
     });
     
+    // Load PIN into global variable
+    parentalControlsPin = settings.pin;
+    
+    // Log the PIN when settings are loaded
+    console.log('[SpoilWipe][ParentalControls] Settings loaded:', {
+      settingsData: settings,
+      pinValue: settings.pin,
+      parentalControlsPin: parentalControlsPin
+    });
+    
+    if (parentalControlsPin) {
+      console.log('[SpoilWipe][ParentalControls] PIN loaded:', parentalControlsPin);
+    } else {
+      console.log('[SpoilWipe][ParentalControls] No PIN found');
+    }
+    
     // Apply settings to form elements
     const formElements = {
-      'auto-block-enabled': settings.autoBlockEnabled,
-      'partial-match-enabled': settings.partialMatchEnabled,
-      'block-sensitivity': settings.blockSensitivity,
-      'theme-select': settings.theme,
-      'animations-enabled': settings.animationsEnabled,
-      'warning-style': settings.warningStyle,
-      'youtube-enabled': settings.youtubeEnabled,
-      'trending-keywords-enabled': settings.trendingKeywordsEnabled,
-      'trending-update-frequency': settings.trendingUpdateFrequency,
-      'analytics-enabled': settings.analyticsEnabled
+      'auto-block-enabled': settings.settings.autoBlockEnabled,
+      'partial-match-enabled': settings.settings.partialMatchEnabled,
+      'block-sensitivity': settings.settings.blockSensitivity,
+      'parental-controls-enabled': settings.settings.parentalControlsEnabled && parentalControlsPin !== null,
+      'theme-select': settings.settings.theme,
+      'animations-enabled': settings.settings.animationsEnabled,
+      'warning-style': settings.settings.warningStyle,
+      'youtube-enabled': settings.settings.youtubeEnabled,
+      'trending-keywords-enabled': settings.settings.trendingKeywordsEnabled,
+      'trending-update-frequency': settings.settings.trendingUpdateFrequency,
+      'analytics-enabled': settings.settings.analyticsEnabled
     };
     
     for (const [elementId, value] of Object.entries(formElements)) {
@@ -2143,9 +2332,9 @@ async function loadSettings() {
     }
     
     // Apply theme immediately when settings are loaded
-    applyTheme(settings.theme);
+    applyTheme(settings.settings.theme);
     
-    console.log('[SpoilWipe][Settings] Settings loaded:', settings);
+    console.log('[SpoilWipe][Settings] Settings loaded:', settings.settings);
   } catch (error) {
     console.error('[SpoilWipe][Settings] Error loading settings:', error);
   }
@@ -2157,6 +2346,7 @@ async function saveSettings() {
       autoBlockEnabled: document.getElementById('auto-block-enabled')?.checked ?? true,
       partialMatchEnabled: document.getElementById('partial-match-enabled')?.checked ?? true,
       blockSensitivity: document.getElementById('block-sensitivity')?.value ?? 'normal',
+      parentalControlsEnabled: document.getElementById('parental-controls-enabled')?.checked ?? false,
       theme: document.getElementById('theme-select')?.value ?? 'auto',
       animationsEnabled: document.getElementById('animations-enabled')?.checked ?? true,
       warningStyle: document.getElementById('warning-style')?.value ?? 'compact',
@@ -2166,11 +2356,14 @@ async function saveSettings() {
       analyticsEnabled: document.getElementById('analytics-enabled')?.checked ?? true
     };
     
+    // Save both settings and PIN
     await new Promise((resolve) => {
-      chrome.storage.sync.set({ spoilwatchSettings: settings }, resolve);
+      chrome.storage.sync.set({ 
+        spoilwatchSettings: settings,
+        parentalControlsPin: parentalControlsPin
+      }, resolve);
     });
     
-    // Apply theme immediately when settings are saved
     applyTheme(settings.theme);
     
     console.log('[SpoilWipe][Settings] Settings saved:', settings);
@@ -2184,6 +2377,7 @@ function getDefaultSettings() {
     autoBlockEnabled: true,
     partialMatchEnabled: true,
     blockSensitivity: 'normal',
+    parentalControlsEnabled: false,
     theme: 'auto',
     animationsEnabled: true,
     warningStyle: 'compact',
@@ -2194,7 +2388,6 @@ function getDefaultSettings() {
   };
 }
 
-// Remove the left popup and mini popup when the main popup closes (extension popup closes)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') {
     const leftPopup = document.getElementById('spoilwatch-left-popup');
@@ -2204,7 +2397,682 @@ document.addEventListener('visibilitychange', function() {
   }
 });
 
-// Inlined fetchRecommendedKeywords from utils/recommendedKeywords.js
+// Global variable to store the parental controls PIN
+let parentalControlsPin = null;
+
+// Helper function to check if parental controls are active
+async function isParentalControlsActive() {
+  try {
+    const settings = await new Promise((resolve) => {
+      chrome.storage.sync.get(['spoilwatchSettings'], (res) => {
+        resolve(res.spoilwatchSettings || getDefaultSettings());
+      });
+    });
+    
+    const isActive = settings.parentalControlsEnabled && parentalControlsPin !== null;
+    console.log('[SpoilWipe][ParentalControls] Checking if active:', {
+      settingEnabled: settings.parentalControlsEnabled,
+      pinExists: parentalControlsPin !== null,
+      pinValue: parentalControlsPin,
+      isActive: isActive
+    });
+    
+    return isActive;
+  } catch (error) {
+    console.error('[SpoilWipe][ParentalControls] Error checking parental controls status:', error);
+    return false;
+  }
+}
+
+// Test function to verify PIN verification is working
+function testPinVerification() {
+  if (parentalControlsPin) {
+    showKeywordOperationPinPopup('Test', () => {
+      console.log('[SpoilWipe][ParentalControls] PIN verification test successful');
+    });
+  } else {
+    console.log('[SpoilWipe][ParentalControls] No PIN available for test');
+  }
+}
+
+// Function to show PIN verification popup for keyword operations
+function showKeywordOperationPinPopup(operation, onSuccess) {
+  // Remove any existing PIN popup
+  const existingPopup = document.getElementById('keyword-operation-pin-popup');
+  if (existingPopup) existingPopup.remove();
+
+  // Create style tag for popup
+  const style = document.createElement('style');
+  style.textContent = `
+    #keyword-operation-pin-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      background: var(--glass-bg, rgba(26,34,54,0.95));
+      border-radius: 18px;
+      box-shadow: 0 8px 32px 0 rgba(16,22,36,0.3), 0 1.5px 8px 0 rgba(30,34,50,0.2);
+      border: 1.5px solid var(--midnight-border, #2d3750);
+      z-index: 2147483648;
+      opacity: 0.99;
+      pointer-events: auto;
+      text-align: center;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      animation: spoilwatch-fadein 0.3s;
+      color: var(--midnight-text, #e2e8f0);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    #keyword-operation-pin-popup-header {
+      padding: 24px 24px 16px 24px;
+      border-radius: 18px 18px 0 0;
+      background: none;
+      color: var(--midnight-text, #e2e8f0);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      margin-bottom: 0;
+      border-bottom: 1px solid var(--midnight-border, #2d3750);
+    }
+    #keyword-operation-pin-popup-input-container {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    #keyword-operation-pin-popup-description {
+      font-size: 14px;
+      color: var(--midnight-text-secondary, #a0aec0);
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    #keyword-operation-pin-popup-input {
+      width: 200px;
+      height: 48px;
+      background: var(--midnight-surface, #1a2236);
+      border: 2px solid var(--midnight-border, #2d3750);
+      border-radius: 12px;
+      color: var(--midnight-text, #e2e8f0);
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: 4px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    #keyword-operation-pin-popup-input:focus {
+      border-color: var(--midnight-accent, #667eea);
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+    }
+    #keyword-operation-pin-popup-input::placeholder {
+      color: var(--midnight-text-secondary, #a0aec0);
+      letter-spacing: 2px;
+    }
+    #keyword-operation-pin-popup-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .keyword-operation-pin-popup-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .keyword-operation-pin-popup-btn-cancel {
+      background: var(--midnight-surface, #1a2236);
+      color: var(--midnight-text-secondary, #a0aec0);
+      border: 1px solid var(--midnight-border, #2d3750);
+    }
+    .keyword-operation-pin-popup-btn-cancel:hover {
+      background: var(--midnight-border, #2d3750);
+      color: var(--midnight-text, #e2e8f0);
+    }
+    .keyword-operation-pin-popup-btn-confirm {
+      background: linear-gradient(135deg, #667eea 0%, #7f9cf5 100%);
+      color: #fff;
+    }
+    .keyword-operation-pin-popup-btn-confirm:hover {
+      background: linear-gradient(135deg, #5a67d8 0%, #6b7cfa 100%);
+      transform: translateY(-1px);
+    }
+    .keyword-operation-pin-popup-btn-confirm:disabled {
+      background: var(--midnight-surface, #1a2236);
+      color: var(--midnight-text-secondary, #a0aec0);
+      cursor: not-allowed;
+      transform: none;
+    }
+    #keyword-operation-pin-popup-error {
+      color: #f56565;
+      font-size: 13px;
+      margin-top: 8px;
+      display: none;
+    }
+  `;
+
+  // Create the PIN popup
+  const pinPopup = document.createElement('div');
+  pinPopup.id = 'keyword-operation-pin-popup';
+  pinPopup.innerHTML = `
+    <div id="keyword-operation-pin-popup-header">${operation} Keywords</div>
+    <div id="keyword-operation-pin-popup-input-container">
+      <div id="keyword-operation-pin-popup-description">Enter your 4-digit PIN to ${operation.toLowerCase()} keywords</div>
+      <input type="password" id="keyword-operation-pin-popup-input" placeholder="••••" maxlength="4" inputmode="numeric">
+      <div id="keyword-operation-pin-popup-error">Incorrect PIN. Please try again.</div>
+      <div id="keyword-operation-pin-popup-buttons">
+        <button class="keyword-operation-pin-popup-btn keyword-operation-pin-popup-btn-cancel" id="keyword-operation-pin-popup-cancel">Cancel</button>
+        <button class="keyword-operation-pin-popup-btn keyword-operation-pin-popup-btn-confirm" id="keyword-operation-pin-popup-confirm" disabled>Confirm</button>
+      </div>
+    </div>
+  `;
+  pinPopup.appendChild(style);
+  document.body.appendChild(pinPopup);
+
+  // Get elements
+  const pinInput = document.getElementById('keyword-operation-pin-popup-input');
+  const confirmBtn = document.getElementById('keyword-operation-pin-popup-confirm');
+  const cancelBtn = document.getElementById('keyword-operation-pin-popup-cancel');
+  const errorMsg = document.getElementById('keyword-operation-pin-popup-error');
+
+  // Focus on input
+  pinInput.focus();
+
+  // Handle input changes
+  pinInput.addEventListener('input', (e) => {
+    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+    e.target.value = value;
+    
+    // Hide error message when user starts typing
+    errorMsg.style.display = 'none';
+    
+    // Enable/disable confirm button based on input length
+    if (value.length === 4) {
+      confirmBtn.disabled = false;
+    } else {
+      confirmBtn.disabled = true;
+    }
+  });
+
+  // Handle confirm button
+  confirmBtn.addEventListener('click', async () => {
+    const enteredPin = pinInput.value;
+    if (enteredPin.length === 4) {
+      // Check if PIN matches
+      if (enteredPin === parentalControlsPin) {
+        // PIN is correct - execute the operation
+        console.log(`[SpoilWipe][ParentalControls] PIN verified - ${operation} operation allowed`);
+        pinPopup.remove();
+        onSuccess();
+      } else {
+        // PIN is incorrect - show error
+        errorMsg.style.display = 'block';
+        pinInput.value = '';
+        pinInput.focus();
+        confirmBtn.disabled = true;
+        console.log(`[SpoilWipe][ParentalControls] Incorrect PIN - ${operation} operation denied`);
+      }
+    }
+  });
+
+  // Handle cancel button
+  cancelBtn.addEventListener('click', () => {
+    pinPopup.remove();
+  });
+
+  // Handle Enter key
+  pinInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && pinInput.value.length === 4) {
+      confirmBtn.click();
+    } else if (e.key === 'Escape') {
+      cancelBtn.click();
+    }
+  });
+
+  // Handle click outside to close
+  pinPopup.addEventListener('click', (e) => {
+    if (e.target === pinPopup) {
+      cancelBtn.click();
+    }
+  });
+}
+
+function showParentalControlsPinPopup() {
+  // Remove any existing PIN popup
+  const existingPopup = document.getElementById('parental-controls-pin-popup');
+  if (existingPopup) existingPopup.remove();
+
+  // Create style tag for popup
+  const style = document.createElement('style');
+  style.textContent = `
+    #parental-controls-pin-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      background: var(--glass-bg, rgba(26,34,54,0.95));
+      border-radius: 18px;
+      box-shadow: 0 8px 32px 0 rgba(16,22,36,0.3), 0 1.5px 8px 0 rgba(30,34,50,0.2);
+      border: 1.5px solid var(--midnight-border, #2d3750);
+      z-index: 2147483648;
+      opacity: 0.99;
+      pointer-events: auto;
+      text-align: center;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      animation: spoilwatch-fadein 0.3s;
+      color: var(--midnight-text, #e2e8f0);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    #parental-controls-pin-popup-header {
+      padding: 24px 24px 16px 24px;
+      border-radius: 18px 18px 0 0;
+      background: none;
+      color: var(--midnight-text, #e2e8f0);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      margin-bottom: 0;
+      border-bottom: 1px solid var(--midnight-border, #2d3750);
+    }
+    #parental-controls-pin-input-container {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    #parental-controls-pin-description {
+      font-size: 14px;
+      color: var(--midnight-text-secondary, #a0aec0);
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    #parental-controls-pin-input {
+      width: 200px;
+      height: 48px;
+      background: var(--midnight-surface, #1a2236);
+      border: 2px solid var(--midnight-border, #2d3750);
+      border-radius: 12px;
+      color: var(--midnight-text, #e2e8f0);
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: 4px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    #parental-controls-pin-input:focus {
+      border-color: var(--midnight-accent, #667eea);
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+    }
+    #parental-controls-pin-input::placeholder {
+      color: var(--midnight-text-secondary, #a0aec0);
+      letter-spacing: 2px;
+    }
+    #parental-controls-pin-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .parental-controls-pin-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .parental-controls-pin-btn-cancel {
+      background: var(--midnight-surface, #1a2236);
+      color: var(--midnight-text-secondary, #a0aec0);
+      border: 1px solid var(--midnight-border, #2d3750);
+    }
+    .parental-controls-pin-btn-cancel:hover {
+      background: var(--midnight-border, #2d3750);
+      color: var(--midnight-text, #e2e8f0);
+    }
+    .parental-controls-pin-btn-confirm {
+      background: linear-gradient(135deg, #667eea 0%, #7f9cf5 100%);
+      color: #fff;
+    }
+    .parental-controls-pin-btn-confirm:hover {
+      background: linear-gradient(135deg, #5a67d8 0%, #6b7cfa 100%);
+      transform: translateY(-1px);
+    }
+    .parental-controls-pin-btn-confirm:disabled {
+      background: var(--midnight-surface, #1a2236);
+      color: var(--midnight-text-secondary, #a0aec0);
+      cursor: not-allowed;
+      transform: none;
+    }
+  `;
+
+  // Create the PIN popup
+  const pinPopup = document.createElement('div');
+  pinPopup.id = 'parental-controls-pin-popup';
+  pinPopup.innerHTML = `
+    <div id="parental-controls-pin-popup-header">Set Parental Controls PIN</div>
+    <div id="parental-controls-pin-input-container">
+      <div id="parental-controls-pin-description">Enter a 4-digit PIN to protect your spoiler settings</div>
+      <input type="password" id="parental-controls-pin-input" placeholder="••••" maxlength="4" inputmode="numeric">
+      <div id="parental-controls-pin-buttons">
+        <button class="parental-controls-pin-btn parental-controls-pin-btn-cancel" id="parental-controls-pin-cancel">Cancel</button>
+        <button class="parental-controls-pin-btn parental-controls-pin-btn-confirm" id="parental-controls-pin-confirm" disabled>Confirm</button>
+      </div>
+    </div>
+  `;
+  pinPopup.appendChild(style);
+  document.body.appendChild(pinPopup);
+
+  // Get elements
+  const pinInput = document.getElementById('parental-controls-pin-input');
+  const confirmBtn = document.getElementById('parental-controls-pin-confirm');
+  const cancelBtn = document.getElementById('parental-controls-pin-cancel');
+
+  // Focus on input
+  pinInput.focus();
+
+  // Handle input changes
+  pinInput.addEventListener('input', (e) => {
+    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+    e.target.value = value;
+    
+    // Enable/disable confirm button based on input length
+    if (value.length === 4) {
+      confirmBtn.disabled = false;
+    } else {
+      confirmBtn.disabled = true;
+    }
+  });
+
+  // Handle confirm button
+  confirmBtn.addEventListener('click', async () => {
+    const pin = pinInput.value;
+    if (pin.length === 4) {
+      parentalControlsPin = pin;
+      
+      // Save the PIN to storage
+      await new Promise((resolve) => {
+        chrome.storage.sync.set({ parentalControlsPin: pin }, resolve);
+      });
+      
+      console.log('[SpoilWipe][ParentalControls] PIN set and saved successfully');
+      pinPopup.remove();
+    }
+  });
+
+  // Handle cancel button
+  cancelBtn.addEventListener('click', () => {
+    // Uncheck the parental controls checkbox
+    const parentalControlsCheckbox = document.getElementById('parental-controls-enabled');
+    if (parentalControlsCheckbox) {
+      parentalControlsCheckbox.checked = false;
+    }
+    pinPopup.remove();
+  });
+
+  // Handle Enter key
+  pinInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && pinInput.value.length === 4) {
+      confirmBtn.click();
+    } else if (e.key === 'Escape') {
+      cancelBtn.click();
+    }
+  });
+
+  // Handle click outside to close
+  pinPopup.addEventListener('click', (e) => {
+    if (e.target === pinPopup) {
+      cancelBtn.click();
+    }
+  });
+}
+
+function showParentalControlsPinVerificationPopup() {
+  // Remove any existing PIN verification popup
+  const existingPopup = document.getElementById('parental-controls-pin-verification-popup');
+  if (existingPopup) existingPopup.remove();
+
+  // Create style tag for popup
+  const style = document.createElement('style');
+  style.textContent = `
+    #parental-controls-pin-verification-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      background: var(--glass-bg, rgba(26,34,54,0.95));
+      border-radius: 18px;
+      box-shadow: 0 8px 32px 0 rgba(16,22,36,0.3), 0 1.5px 8px 0 rgba(30,34,50,0.2);
+      border: 1.5px solid var(--midnight-border, #2d3750);
+      z-index: 2147483648;
+      opacity: 0.99;
+      pointer-events: auto;
+      text-align: center;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      animation: spoilwatch-fadein 0.3s;
+      color: var(--midnight-text, #e2e8f0);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    #parental-controls-pin-verification-popup-header {
+      padding: 24px 24px 16px 24px;
+      border-radius: 18px 18px 0 0;
+      background: none;
+      color: var(--midnight-text, #e2e8f0);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      margin-bottom: 0;
+      border-bottom: 1px solid var(--midnight-border, #2d3750);
+    }
+    #parental-controls-pin-verification-input-container {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    #parental-controls-pin-verification-description {
+      font-size: 14px;
+      color: var(--midnight-text-secondary, #a0aec0);
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    #parental-controls-pin-verification-input {
+      width: 200px;
+      height: 48px;
+      background: var(--midnight-surface, #1a2236);
+      border: 2px solid var(--midnight-border, #2d3750);
+      border-radius: 12px;
+      color: var(--midnight-text, #e2e8f0);
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: 4px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    #parental-controls-pin-verification-input:focus {
+      border-color: var(--midnight-accent, #667eea);
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+    }
+    #parental-controls-pin-verification-input::placeholder {
+      color: var(--midnight-text-secondary, #a0aec0);
+      letter-spacing: 2px;
+    }
+    #parental-controls-pin-verification-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .parental-controls-pin-verification-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .parental-controls-pin-verification-btn-cancel {
+      background: var(--midnight-surface, #1a2236);
+      color: var(--midnight-text-secondary, #a0aec0);
+      border: 1px solid var(--midnight-border, #2d3750);
+    }
+    .parental-controls-pin-verification-btn-cancel:hover {
+      background: var(--midnight-border, #2d3750);
+      color: var(--midnight-text, #e2e8f0);
+    }
+    .parental-controls-pin-verification-btn-confirm {
+      background: linear-gradient(135deg, #667eea 0%, #7f9cf5 100%);
+      color: #fff;
+    }
+    .parental-controls-pin-verification-btn-confirm:hover {
+      background: linear-gradient(135deg, #5a67d8 0%, #6b7cfa 100%);
+      transform: translateY(-1px);
+    }
+    .parental-controls-pin-verification-btn-confirm:disabled {
+      background: var(--midnight-surface, #1a2236);
+      color: var(--midnight-text-secondary, #a0aec0);
+      cursor: not-allowed;
+      transform: none;
+    }
+    #parental-controls-pin-verification-error {
+      color: #f56565;
+      font-size: 13px;
+      margin-top: 8px;
+      display: none;
+    }
+  `;
+
+  // Create the PIN verification popup
+  const pinVerificationPopup = document.createElement('div');
+  pinVerificationPopup.id = 'parental-controls-pin-verification-popup';
+  pinVerificationPopup.innerHTML = `
+    <div id="parental-controls-pin-verification-popup-header">Disable Parental Controls</div>
+    <div id="parental-controls-pin-verification-input-container">
+      <div id="parental-controls-pin-verification-description">Enter your 4-digit PIN to disable parental controls</div>
+      <input type="password" id="parental-controls-pin-verification-input" placeholder="••••" maxlength="4" inputmode="numeric">
+      <div id="parental-controls-pin-verification-error">Incorrect PIN. Please try again.</div>
+      <div id="parental-controls-pin-verification-buttons">
+        <button class="parental-controls-pin-verification-btn parental-controls-pin-verification-btn-cancel" id="parental-controls-pin-verification-cancel">Cancel</button>
+        <button class="parental-controls-pin-verification-btn parental-controls-pin-verification-btn-confirm" id="parental-controls-pin-verification-confirm" disabled>Confirm</button>
+      </div>
+    </div>
+  `;
+  pinVerificationPopup.appendChild(style);
+  document.body.appendChild(pinVerificationPopup);
+
+  // Get elements
+  const pinInput = document.getElementById('parental-controls-pin-verification-input');
+  const confirmBtn = document.getElementById('parental-controls-pin-verification-confirm');
+  const cancelBtn = document.getElementById('parental-controls-pin-verification-cancel');
+  const errorMsg = document.getElementById('parental-controls-pin-verification-error');
+
+  // Focus on input
+  pinInput.focus();
+
+  // Handle input changes
+  pinInput.addEventListener('input', (e) => {
+    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+    e.target.value = value;
+    
+    // Hide error message when user starts typing
+    errorMsg.style.display = 'none';
+    
+    // Enable/disable confirm button based on input length
+    if (value.length === 4) {
+      confirmBtn.disabled = false;
+    } else {
+      confirmBtn.disabled = true;
+    }
+  });
+
+  confirmBtn.addEventListener('click', async () => {
+    const enteredPin = pinInput.value;
+    if (enteredPin.length === 4) {
+      if (enteredPin === parentalControlsPin) {
+        parentalControlsPin = null;
+        await new Promise((resolve) => {
+          chrome.storage.sync.remove(['parentalControlsPin'], resolve);
+        });
+        
+        const parentalControlsCheckbox = document.getElementById('parental-controls-enabled');
+        if (parentalControlsCheckbox) {
+          parentalControlsCheckbox.checked = false;
+        }
+        
+        console.log('[SpoilWipe][ParentalControls] PIN verified - parental controls disabled');
+        pinVerificationPopup.remove();
+      } else {
+        // PIN is incorrect - show error and keep parental controls enabled
+        errorMsg.style.display = 'block';
+        pinInput.value = '';
+        pinInput.focus();
+        confirmBtn.disabled = true;
+        
+        // Re-check the parental controls checkbox since PIN was wrong
+        const parentalControlsCheckbox = document.getElementById('parental-controls-enabled');
+        if (parentalControlsCheckbox) {
+          parentalControlsCheckbox.checked = true;
+        }
+        
+        console.log('[SpoilWipe][ParentalControls] Incorrect PIN - parental controls remain enabled');
+      }
+    }
+  });
+
+  // Handle cancel button
+  cancelBtn.addEventListener('click', () => {
+    // Re-check the parental controls checkbox since user cancelled
+    const parentalControlsCheckbox = document.getElementById('parental-controls-enabled');
+    if (parentalControlsCheckbox) {
+      parentalControlsCheckbox.checked = true;
+    }
+    pinVerificationPopup.remove();
+  });
+
+  // Handle Enter key
+  pinInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && pinInput.value.length === 4) {
+      confirmBtn.click();
+    } else if (e.key === 'Escape') {
+      cancelBtn.click();
+    }
+  });
+
+  // Handle click outside to close
+  pinVerificationPopup.addEventListener('click', (e) => {
+    if (e.target === pinVerificationPopup) {
+      cancelBtn.click();
+    }
+  });
+}
+
 async function fetchRecommendedKeywordsInline(userInput) {
   if (!userInput || userInput.length < 3) return [];
   try {

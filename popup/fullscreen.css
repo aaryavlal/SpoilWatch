@@ -677,10 +677,10 @@ html.spoilwatch-overlay-open {
 
 .settings-description {
   font-size: 0.9rem;
-  color: var(--midnight-text-secondary);
+  color: #a0aec0;
   margin-left: 32px;
   line-height: 1.4;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 /* Custom checkbox styling */

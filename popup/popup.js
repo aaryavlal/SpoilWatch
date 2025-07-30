@@ -1,5 +1,243 @@
 import { saveBlockedKeywords, getBlockedKeywords, removeKeyword, getKeywordHistory, saveKeywordHistory } from '../utils/storage.js';
 
+// Global variable to store the parental controls PIN
+let parentalControlsPin = null;
+
+// Helper function to check if parental controls are active
+async function isParentalControlsActive() {
+  try {
+    const settings = await new Promise((resolve) => {
+      chrome.storage.sync.get(['spoilwatchSettings'], (res) => {
+        resolve(res.spoilwatchSettings || getDefaultSettings());
+      });
+    });
+    
+    const isActive = settings.parentalControlsEnabled && parentalControlsPin !== null;
+    console.log('[SpoilWipe][Popup][ParentalControls] Checking if active:', {
+      settingEnabled: settings.parentalControlsEnabled,
+      pinExists: parentalControlsPin !== null,
+      pinValue: parentalControlsPin,
+      isActive: isActive
+    });
+    
+    return isActive;
+  } catch (error) {
+    console.error('[SpoilWipe][Popup][ParentalControls] Error checking parental controls status:', error);
+    return false;
+  }
+}
+
+// Function to show PIN verification popup for keyword operations
+function showKeywordOperationPinPopup(operation, onSuccess) {
+  // Remove any existing PIN popup
+  const existingPopup = document.getElementById('keyword-operation-pin-popup');
+  if (existingPopup) existingPopup.remove();
+
+  // Create style tag for popup
+  const style = document.createElement('style');
+  style.textContent = `
+    #keyword-operation-pin-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      background: var(--glass-bg, rgba(26,34,54,0.95));
+      border-radius: 18px;
+      box-shadow: 0 8px 32px 0 rgba(16,22,36,0.3), 0 1.5px 8px 0 rgba(30,34,50,0.2);
+      border: 1.5px solid var(--midnight-border, #2d3750);
+      z-index: 2147483648;
+      opacity: 0.99;
+      pointer-events: auto;
+      text-align: center;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      animation: spoilwatch-fadein 0.3s;
+      color: var(--midnight-text, #e2e8f0);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    #keyword-operation-pin-popup-header {
+      padding: 24px 24px 16px 24px;
+      border-radius: 18px 18px 0 0;
+      background: none;
+      color: var(--midnight-text, #e2e8f0);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      margin-bottom: 0;
+      border-bottom: 1px solid var(--midnight-border, #2d3750);
+    }
+    #keyword-operation-pin-popup-input-container {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    #keyword-operation-pin-popup-description {
+      font-size: 14px;
+      color: var(--midnight-text-secondary, #a0aec0);
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    #keyword-operation-pin-popup-input {
+      width: 200px;
+      height: 48px;
+      background: var(--midnight-surface, #1a2236);
+      border: 2px solid var(--midnight-border, #2d3750);
+      border-radius: 12px;
+      color: var(--midnight-text, #e2e8f0);
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: 4px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    #keyword-operation-pin-popup-input:focus {
+      border-color: var(--midnight-accent, #667eea);
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+    }
+    #keyword-operation-pin-popup-input::placeholder {
+      color: var(--midnight-text-secondary, #a0aec0);
+      letter-spacing: 2px;
+    }
+    #keyword-operation-pin-popup-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .keyword-operation-pin-popup-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .keyword-operation-pin-popup-btn-cancel {
+      background: var(--midnight-surface, #1a2236);
+      color: var(--midnight-text-secondary, #a0aec0);
+      border: 1px solid var(--midnight-border, #2d3750);
+    }
+    .keyword-operation-pin-popup-btn-cancel:hover {
+      background: var(--midnight-border, #2d3750);
+      color: var(--midnight-text, #e2e8f0);
+    }
+    .keyword-operation-pin-popup-btn-confirm {
+      background: linear-gradient(135deg, #667eea 0%, #7f9cf5 100%);
+      color: #fff;
+    }
+    .keyword-operation-pin-popup-btn-confirm:hover {
+      background: linear-gradient(135deg, #5a67d8 0%, #6b7cfa 100%);
+      transform: translateY(-1px);
+    }
+    .keyword-operation-pin-popup-btn-confirm:disabled {
+      background: var(--midnight-surface, #1a2236);
+      color: var(--midnight-text-secondary, #a0aec0);
+      cursor: not-allowed;
+      transform: none;
+    }
+    #keyword-operation-pin-popup-error {
+      color: #f56565;
+      font-size: 13px;
+      margin-top: 8px;
+      display: none;
+    }
+  `;
+
+  // Create the PIN popup
+  const pinPopup = document.createElement('div');
+  pinPopup.id = 'keyword-operation-pin-popup';
+  pinPopup.innerHTML = `
+    <div id="keyword-operation-pin-popup-header">${operation} Keywords</div>
+    <div id="keyword-operation-pin-popup-input-container">
+      <div id="keyword-operation-pin-popup-description">Enter your 4-digit PIN to ${operation.toLowerCase()} keywords</div>
+      <input type="password" id="keyword-operation-pin-popup-input" placeholder="••••" maxlength="4" inputmode="numeric">
+      <div id="keyword-operation-pin-popup-error">Incorrect PIN. Please try again.</div>
+      <div id="keyword-operation-pin-popup-buttons">
+        <button class="keyword-operation-pin-popup-btn keyword-operation-pin-popup-btn-cancel" id="keyword-operation-pin-popup-cancel">Cancel</button>
+        <button class="keyword-operation-pin-popup-btn keyword-operation-pin-popup-btn-confirm" id="keyword-operation-pin-popup-confirm" disabled>Confirm</button>
+      </div>
+    </div>
+  `;
+  pinPopup.appendChild(style);
+  document.body.appendChild(pinPopup);
+
+  // Get elements
+  const pinInput = document.getElementById('keyword-operation-pin-popup-input');
+  const confirmBtn = document.getElementById('keyword-operation-pin-popup-confirm');
+  const cancelBtn = document.getElementById('keyword-operation-pin-popup-cancel');
+  const errorMsg = document.getElementById('keyword-operation-pin-popup-error');
+
+  // Focus on input
+  pinInput.focus();
+
+  // Handle input changes
+  pinInput.addEventListener('input', (e) => {
+    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+    e.target.value = value;
+    
+    // Hide error message when user starts typing
+    errorMsg.style.display = 'none';
+    
+    // Enable/disable confirm button based on input length
+    if (value.length === 4) {
+      confirmBtn.disabled = false;
+    } else {
+      confirmBtn.disabled = true;
+    }
+  });
+
+  // Handle confirm button
+  confirmBtn.addEventListener('click', async () => {
+    const enteredPin = pinInput.value;
+    if (enteredPin.length === 4) {
+      // Check if PIN matches
+      if (enteredPin === parentalControlsPin) {
+        // PIN is correct - execute the operation
+        console.log(`[SpoilWipe][Popup][ParentalControls] PIN verified - ${operation} operation allowed`);
+        pinPopup.remove();
+        onSuccess();
+      } else {
+        // PIN is incorrect - show error
+        errorMsg.style.display = 'block';
+        pinInput.value = '';
+        pinInput.focus();
+        confirmBtn.disabled = true;
+        console.log(`[SpoilWipe][Popup][ParentalControls] Incorrect PIN - ${operation} operation denied`);
+      }
+    }
+  });
+
+  // Handle cancel button
+  cancelBtn.addEventListener('click', () => {
+    pinPopup.remove();
+  });
+
+  // Handle Enter key
+  pinInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && pinInput.value.length === 4) {
+      confirmBtn.click();
+    } else if (e.key === 'Escape') {
+      cancelBtn.click();
+    }
+  });
+
+  // Handle click outside to close
+  pinPopup.addEventListener('click', (e) => {
+    if (e.target === pinPopup) {
+      cancelBtn.click();
+    }
+  });
+}
+
 // Theme management functions
 function applyTheme(theme) {
   console.log('[SpoilWipe][Popup][Theme] Applying theme:', theme);
@@ -80,6 +318,22 @@ const btnLoader = document.querySelector('.btn-loader');
 const keywordsChips = document.getElementById('keywordsChips');
 const noKeywordsMsg = document.getElementById('noKeywordsMsg');
 
+// Load PIN when popup opens
+async function loadParentalControlsPin() {
+  try {
+    const result = await new Promise((resolve) => {
+      chrome.storage.sync.get(['parentalControlsPin'], (res) => {
+        resolve(res.parentalControlsPin || null);
+      });
+    });
+    parentalControlsPin = result;
+    console.log('[SpoilWipe][Popup][ParentalControls] PIN loaded:', parentalControlsPin);
+  } catch (error) {
+    console.error('[SpoilWipe][Popup][ParentalControls] Error loading PIN:', error);
+    parentalControlsPin = null;
+  }
+}
+
 // Load existing keywords when popup opens
 async function loadExistingKeywords() {
   try {
@@ -119,6 +373,22 @@ async function handleRemoveKeyword(event) {
   const keywordToRemove = event.keyword || event.currentTarget.getAttribute('data-keyword');
   const button = event.currentTarget;
   
+  // Check if parental controls are active
+  const parentalControlsActive = await isParentalControlsActive();
+  if (parentalControlsActive) {
+    // Show PIN verification popup for removing keywords
+    showKeywordOperationPinPopup('Remove', async () => {
+      // PIN verified - proceed with removing keyword
+      await performRemoveKeyword(keywordToRemove, button);
+    });
+  } else {
+    // No parental controls - remove directly
+    await performRemoveKeyword(keywordToRemove, button);
+  }
+}
+
+// Perform the actual keyword removal
+async function performRemoveKeyword(keywordToRemove, button) {
   // Show loading state on the button
   button.disabled = true;
   button.innerHTML = '<span class="loading-dots">...</span>';
@@ -189,6 +459,22 @@ async function saveKeywords() {
     return;
   }
 
+  // Check if parental controls are active
+  const parentalControlsActive = await isParentalControlsActive();
+  if (parentalControlsActive) {
+    // Show PIN verification popup for adding keywords
+    showKeywordOperationPinPopup('Add', async () => {
+      // PIN verified - proceed with adding keywords
+      await performSaveKeywords(input);
+    });
+  } else {
+    // No parental controls - add directly
+    await performSaveKeywords(input);
+  }
+}
+
+// Perform the actual keyword saving
+async function performSaveKeywords(input) {
   // Show loading state
   setLoadingState(true);
   
@@ -293,6 +579,9 @@ document.addEventListener('DOMContentLoaded', loadExistingKeywords);
 
 // Load theme settings when popup opens
 document.addEventListener('DOMContentLoaded', loadThemeSettings);
+
+// Load parental controls PIN when popup opens
+document.addEventListener('DOMContentLoaded', loadParentalControlsPin);
 
 // Set up system theme change listener for auto theme
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
