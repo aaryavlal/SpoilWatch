@@ -1,4 +1,4 @@
-// SpoilWipe content script loaded successfully
+
 var currentVideoId = null;
 var lastLoggedVideoId = null;
 var hasCheckedCurrentVideo = false;
@@ -6,7 +6,6 @@ var videoCheckInterval = null;
 var currentBlockedVideoElement = null;
 var observer = null;
 
-// Storage functions for getting blocked keywords
 function getBlockedKeywords() {
   return new Promise((resolve) => {
     try {
@@ -33,7 +32,6 @@ function getKeywordHistory() {
   });
 }
 
-// Checks if any tags match the blocked keywords
 function shouldBlock(tagsOnPage, blockedKeywords) {
   if (!tagsOnPage || !blockedKeywords || tagsOnPage.length === 0 || blockedKeywords.length === 0) {
     console.log('SpoilWipe: shouldBlock returning false - missing data:', {
@@ -55,10 +53,8 @@ function shouldBlock(tagsOnPage, blockedKeywords) {
       const cleanKeyword = keyword.toLowerCase().trim();
       if (!cleanKeyword || COMMON_WORDS.includes(cleanKeyword)) return false;
 
-      // Check for exact match
       if (cleanTag === cleanKeyword) return true;
 
-      // Check for partial match if both are at least 4 characters
       if (
         cleanTag.length >= 4 && cleanKeyword.length >= 4 &&
         (cleanTag.includes(cleanKeyword) || cleanKeyword.includes(cleanTag))
@@ -67,7 +63,6 @@ function shouldBlock(tagsOnPage, blockedKeywords) {
         return true;
       }
 
-      // Check for word-level matches
       const tagWords = cleanTag.split(/[\s\-_]+/);
       const keywordWords = cleanKeyword.split(/[\s\-_]+/);
 
@@ -81,7 +76,6 @@ function shouldBlock(tagsOnPage, blockedKeywords) {
           // Exact word match
           if (tagWord === keywordWord) return true;
 
-          // Partial word match (at least 4 characters)
           if (
             tagWord.length >= 4 &&
             keywordWord.length >= 4 &&
@@ -101,7 +95,6 @@ function shouldBlock(tagsOnPage, blockedKeywords) {
   return result;
 }
 
-// Selectors for YouTube Shorts elements
 const YOUTUBE_SELECTORS = {
   video: 'video, .html5-video-container, ytd-player, .ytd-player, .video-stream, .html5-main-video, #movie_player, .ytp-video',
   title: 'h1.ytd-video-primary-info-renderer, .ytd-video-primary-info-renderer h1, .ytd-shorts h1, ytd-video-primary-info-renderer h1, ytd-shorts h1, #title h1, #title, .title, ytd-video-primary-info-renderer, .ytd-video-primary-info-renderer',
@@ -113,11 +106,9 @@ const YOUTUBE_SELECTORS = {
   textContainers: 'p, span, div, h1, h2, h3, h4, h5, h6, a, ytd-video-secondary-info-renderer, .ytd-video-secondary-info-renderer'
 };
 
-// Scans for hashtags in the title, description, and hashtag links
 function debugScanForHashtags() {
   console.log('SpoilWipe: Starting scoped hashtag scan...');
 
-  // 🧼 Clear outlines from any previous video
   document.querySelectorAll('[data-spoilwatch-debug]').forEach(el => {
     if (el && el.style) {
       el.style.outline = '';
@@ -169,13 +160,11 @@ function debugScanForHashtags() {
 }
 
 
-// Extracts hashtags and keyword-like words from text
 function extractHashtags(text) {
   if (!text) {
     console.log('SpoilWipe: extractHashtags - no text provided');
     return [];
   }
-  // Remove emojis from the text
   const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
   text = text.replace(emojiRegex, '');
 
@@ -184,7 +173,6 @@ function extractHashtags(text) {
   const matches = text.match(hashtagRegex) || [];
   const hashtags = matches.map(tag => tag.toLowerCase());
 
-  // Also check for keyword-like words (no emoji)
   const words = text.toLowerCase().split(/\s+/);
   const keywordMatches = words.filter(word => {
     const cleanWord = word.replace(/[^\w]/g, '');
@@ -202,7 +190,6 @@ function extractHashtags(text) {
   return result;
 }
 
-// Gets all text from an element
 function extractTextFromElement(element) {
   if (!element) return '';
   let text = '';
@@ -214,7 +201,6 @@ function extractTextFromElement(element) {
   return text.trim();
 }
 
-// Checks if an element should be blocked based on hashtags/keywords
 function shouldBlockElement(element, blockedKeywords) {
   if (!element || !blockedKeywords || blockedKeywords.length === 0) return false;
   const text = extractTextFromElement(element);
@@ -230,14 +216,12 @@ async function applyBlocking(element, blockedKeywords) {
   if (shouldBlockElement(element, blockedKeywords)) {
     console.log('SpoilWipe: Blocking element with hashtags:', element);
     
-    // Check if we already have a video blocked on this page
     const existingVideoBlock = document.querySelector('[data-spoilwatch-video-blocked]');
     if (existingVideoBlock) {
       console.log('SpoilWipe: Video already blocked, skipping');
       return;
     }
     
-    // Find the actual video element to blur
     const videoElement = findVideoElement();
     if (!videoElement) {
       console.log('SpoilWipe: No video element found to block');
@@ -249,24 +233,19 @@ async function applyBlocking(element, blockedKeywords) {
 currentBlockedVideoElement = videoElement;
 
 
-    // Apply blur to the video element
     videoElement.style.filter = 'blur(12px)';
     videoElement.style.pointerEvents = 'auto';
     videoElement.style.userSelect = 'auto';
     videoElement.style.position = 'relative';
     
-    // Mark this as the main video block
     videoElement.setAttribute('data-spoilwatch-video-blocked', 'true');
     
-    // Check if parental controls are active
     const parentalControlsActive = await isParentalControlsActive();
     
-    // Add a compact, calm warning overlay to the video element
     const overlay = document.createElement('div');
     overlay.className = 'spoilwatch-overlay';
     
     if (parentalControlsActive) {
-      // Parental controls active - show restricted message without Watch Anyway button
       overlay.innerHTML = `
         <div class="spoilwatch-warning" style="background: rgba(30,34,50,0.82); border-radius: 12px; box-shadow: 0 2px 12px rgba(16,22,36,0.10); padding: 16px 18px 12px 18px; display: flex; flex-direction: column; align-items: center; min-width: 120px; max-width: 220px;">
           <div style="font-size: 20px; margin-bottom: 2px;">🔒</div>
@@ -275,7 +254,6 @@ currentBlockedVideoElement = videoElement;
         </div>
       `;
     } else {
-      // No parental controls - show normal spoiler warning with Watch Anyway button
       overlay.innerHTML = `
         <div class="spoilwatch-warning" style="background: rgba(30,34,50,0.82); border-radius: 12px; box-shadow: 0 2px 12px rgba(16,22,36,0.10); padding: 16px 18px 12px 18px; display: flex; flex-direction: column; align-items: center; min-width: 120px; max-width: 220px;">
           <div style="font-size: 20px; margin-bottom: 2px;">⚠️</div>
@@ -301,7 +279,6 @@ currentBlockedVideoElement = videoElement;
       box-shadow: none;
       pointer-events: auto;
     `;
-    // Add event listener to the Watch Anyway button (only if parental controls are not active)
     if (!parentalControlsActive) {
       const watchBtn = overlay.querySelector('.spoilwatch-watch-btn');
       watchBtn.addEventListener('mouseenter', function() {
@@ -323,7 +300,6 @@ currentBlockedVideoElement = videoElement;
       });
     }
     videoElement.appendChild(overlay);
-    // Pause the video when a spoiler is detected
     if (typeof videoElement.pause === 'function') {
       videoElement.pause();
     }
@@ -331,17 +307,14 @@ currentBlockedVideoElement = videoElement;
       videoElement.style.position = 'relative';
     }
     
-    // Fallback: If overlay is not visible after a short delay, append to body instead
     setTimeout(() => {
       if (!overlay.isConnected || overlay.offsetParent === null) {
         console.log('SpoilWipe: Overlay not visible, trying fallback to body');
         
-        // Remove from video element
         if (overlay.parentNode) {
           overlay.parentNode.removeChild(overlay);
         }
         
-        // Update positioning for body placement
         overlay.style.position = 'fixed';
         overlay.style.top = '50%';
         overlay.style.left = '50%';
@@ -354,7 +327,6 @@ currentBlockedVideoElement = videoElement;
       }
     }, 100);
     
-    // Add styles for the warning elements (only once)
     if (!document.querySelector('style[data-spoilwatch-styles]')) {
       const style = document.createElement('style');
       style.setAttribute('data-spoilwatch-styles', 'true');
@@ -406,7 +378,6 @@ currentBlockedVideoElement = videoElement;
     }
   }
   
-  // Add analytics tracking for blocked keywords (capped at 1 per video)
   const text = extractTextFromElement(element);
   const hashtags = extractHashtags(text);
   if (hashtags.length > 0) {
@@ -418,7 +389,6 @@ currentBlockedVideoElement = videoElement;
       const cleanTag = tag.replace('#', '').toLowerCase();
       if (!cleanTag) return;
       
-      // Check if this hashtag matches any blocked keyword
       blockedKeywords.forEach(blockedKeyword => {
         const cleanBlockedKeyword = blockedKeyword.toLowerCase().trim();
         if (cleanTag === cleanBlockedKeyword || 
@@ -432,13 +402,11 @@ currentBlockedVideoElement = videoElement;
     if (matchedKeywords.length > 0) {
       console.log('[SpoilWipe][Analytics] Matched keywords that triggered block:', matchedKeywords);
       
-      // Get the current video ID to track unique keywords per video
       const videoId = getCurrentVideoId();
       
       getKeywordBlockCounts().then(counts => {
         console.log('[SpoilWipe][Analytics] Counts before increment:', counts);
         
-        // Check if we've already counted ANY keyword for this video
         const videoAlreadyCounted = Object.keys(counts).some(keyword => {
           const videoKeywordKey = `${videoId}_${keyword}`;
           return counts[videoKeywordKey] !== undefined;
@@ -449,7 +417,6 @@ currentBlockedVideoElement = videoElement;
           return;
         }
         
-        // Only count the first matched keyword for this video
         const firstMatchedKeyword = matchedKeywords[0];
         const videoKeywordKey = `${videoId}_${firstMatchedKeyword}`;
         
@@ -478,7 +445,6 @@ currentBlockedVideoElement = videoElement;
 function isElementInViewport(el) {
   if (!el) return false;
   const rect = el.getBoundingClientRect();
-  // Only require that some part of the video is visible
   return (
     rect.bottom > 0 &&
     rect.right > 0 &&
@@ -488,12 +454,9 @@ function isElementInViewport(el) {
 }
 
 
-// Helper function to find the actual video element
 function findVideoElement() {
-  // Try Shorts-specific selectors first
   let el = document.querySelector('ytd-reel-video-renderer video, ytd-reel-player-overlay-renderer video');
   if (el) return el;
-  // Fallback to generic selectors
   const selectors = [
     'video',
     '.html5-video-container video',
@@ -602,7 +565,6 @@ function checkYouTubeShorts(retryCount = 0) {
 
     console.log(`SpoilWipe: Found ${blockedKeywords.length} blocked keywords:`, blockedKeywords);
 
-    // Debug scan only within the active card
     const foundElements = [];
     const selectors = [
       YOUTUBE_SELECTORS.title,
@@ -656,7 +618,6 @@ function checkYouTubeShorts(retryCount = 0) {
       return;
     }
 
-    // Fallback: Run normal detection logic (also scoped to activeCard)
     console.log('SpoilWipe: Running fallback detection logic...');
 
     const titleElements = activeCard.querySelectorAll(YOUTUBE_SELECTORS.title);
@@ -702,13 +663,11 @@ function checkYouTubeShorts(retryCount = 0) {
 }
 
 
-// Helper function to block the video
 async function blockVideo(blockingHashtags) {
   
-  // Find the main video element using our helper function
   const videoElement = findVideoElement();
   if (!videoElement) {
-    console.log('❌ SpoilWipe: No video element found to block');
+    console.log('SpoilWipe: No video element found to block');
     return;
   }
   
@@ -716,36 +675,29 @@ async function blockVideo(blockingHashtags) {
 
   currentBlockedVideoElement = videoElement;
   
-  // Only block if not already blocked for this video
   if (videoElement.getAttribute('data-spoilwatch-blocked-id') === currentVideoId) {
     console.log('SpoilWipe: Video already blocked for this ID, skipping');
     return;
   }
 
-  // Set the unique attribute
   videoElement.setAttribute('data-spoilwatch-blocked-id', currentVideoId);
 
   
   console.log('[SpoilWipe][Analytics] blockVideo called with:', blockingHashtags);
 
-  // Apply blur to video
   videoElement.style.filter = 'blur(12px)';
   videoElement.style.pointerEvents = 'auto';
   videoElement.style.userSelect = 'auto';
   videoElement.style.position = 'relative';
   
-  // Mark this as the main video block
   videoElement.setAttribute('data-spoilwatch-video-blocked', 'true');
   
-  // Check if parental controls are active
   const parentalControlsActive = await isParentalControlsActive();
   
-  // Add a warning overlay
   const overlay = document.createElement('div');
   overlay.className = 'spoilwatch-overlay';
   
   if (parentalControlsActive) {
-    // Parental controls active - show restricted message without Watch Anyway button
     overlay.innerHTML = `
       <div class="spoilwatch-warning">
         <div class="spoilwatch-icon">🔒</div>
@@ -755,7 +707,6 @@ async function blockVideo(blockingHashtags) {
       </div>
     `;
   } else {
-    // No parental controls - show normal spoiler warning with Watch Anyway button
     overlay.innerHTML = `
       <div class="spoilwatch-warning">
         <div class="spoilwatch-icon">⚠️</div>
@@ -938,19 +889,17 @@ function initializeSpoilWatch() {
     clearInterval(videoCheckInterval);
   }
   
-  // Start continuous video monitoring every 500ms
   videoCheckInterval = setInterval(monitorVideoChanges, 500);
   
   // Initial check after a short delay
   setTimeout(monitorVideoChanges, 2000);
   
-  // Set up observer for dynamic content (YouTube is very dynamic)
   const observer = new MutationObserver((mutations) => {
     let shouldCheck = false;
     
     mutations.forEach((mutation) => {
       if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-        // Check if new content was added that might contain hashtags
+        
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             const hasRelevantContent = node.querySelector && (
@@ -975,7 +924,6 @@ function initializeSpoilWatch() {
     });
     
     if (shouldCheck) {
-      // Debounce the check to avoid multiple rapid checks
       clearTimeout(window.spoilwatchCheckTimeout);
       window.spoilwatchCheckTimeout = setTimeout(monitorVideoChanges, 500);
     }
@@ -990,11 +938,10 @@ function initializeSpoilWatch() {
   console.log('SpoilWipe: Continuous monitoring started (500ms intervals)');
 }
 
-// Listen for messages from the popup to show fullscreen overlay
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[SpoilWipe] Received message:', message);
   if (message && message.action === 'show_fullscreen_overlay') {
-    // Pause the current video if present
+    
     const video = document.querySelector('video');
     if (video && typeof video.pause === 'function') {
       video.pause();
@@ -1837,7 +1784,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       #spoilwatch-left-popup {
         position: fixed;
         top: 32px;
-        right: 520px;
+        right: 50%;
         min-width: 260px;
         max-width: 320px;
         background: var(--glass-bg, rgba(26,34,54,0.8));
